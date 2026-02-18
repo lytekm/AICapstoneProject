@@ -1,4 +1,7 @@
+numpy
+scikit-learn
+rouge-score
 feedparser
-requests
-beautifulsoup4
 pandas
+nltk
+trafilatura
