@@ -5,3 +5,6 @@ feedparser
 pandas
 nltk
 trafilatura
+datasets
+evaluate
+pyarrow

@@ -6,7 +6,7 @@ from typing import List
 
 from .data_pipeline import NewsDataPipeline
 from .summarizer_model import TextRankMMRSummarizer, SummarizerConfig
-
+from src.diagram_generator import DiagramGenerator
 
 def ensure_outputs():
     os.makedirs("outputs", exist_ok=True)
@@ -18,7 +18,7 @@ def main():
     feed_url = "https://www.cbc.ca/cmlink/rss-business"
     limit = 5
     k = 3
-
+    DiagramGenerator().generate_all()
     pipeline = NewsDataPipeline()
     articles = pipeline.build_articles(feed_url=feed_url, limit=limit)
 

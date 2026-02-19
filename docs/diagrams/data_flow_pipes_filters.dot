@@ -1,0 +1,58 @@
+digraph Data_Flow_Pipes_Filters {
+  rankdir=LR;
+  graph [fontsize=12, fontname="Arial", labelloc="t",
+         label="Data Flow Architecture (Pipes & Filters)"];
+  node  [fontname="Arial", fontsize=10, shape=box, style="rounded,filled",
+         fillcolor="#f2f2f2"];
+  edge  [fontname="Arial", fontsize=10, penwidth=2];
+
+  // --- Start filters (left) ---
+  In   [label="Input Source\n(RSS / Dataset)"];
+  F1   [label="Filter:\nFetch / Load"];
+  F2   [label="Filter:\nExtract Text"];
+
+  In -> F1 -> F2;
+
+  // --- Split into 3 parallel branches ---
+  // Use invisible nodes to force cleaner alignment
+  split [shape=point, width=0.01, label=""];
+  F2 -> split;
+
+  // Branch A (top): Normalize -> Tokenize
+  A1 [label="Filter:\nNormalize"];
+  A2 [label="Filter:\nTokenize\n(sentences/words)"];
+
+  // Branch B (middle): Vectorize -> Similarity
+  B1 [label="Filter:\nVectorize\n(TF-IDF)"];
+  B2 [label="Filter:\nSimilarity Graph\n(cosine matrix)"];
+
+  // Branch C (bottom): Quality checks -> Clean-up
+  C1 [label="Filter:\nQuality Checks\n(drop short/junk)"];
+  C2 [label="Filter:\nDe-dup / Clean"];
+
+  split -> A1;
+  split -> B1;
+  split -> C1;
+
+  A1 -> A2;
+  B1 -> B2;
+  C1 -> C2;
+
+  // --- Merge back ---
+  merge [shape=point, width=0.01, label=""];
+  A2 -> merge;
+  B2 -> merge;
+  C2 -> merge;
+
+  // --- Final stage (right) ---
+  F3 [label="Filter:\nTextRank\n(PageRank scores)"];
+  F4 [label="Filter:\nMMR Selection\n(diversity)"];
+  Out [label="Output:\nSummary"];
+  Persist [label="Persist:\nCSV / JSON"];
+
+  merge -> F3 -> F4 -> Out -> Persist;
+
+  // Optional: keep branch ordering visually consistent
+  { rank=same; A1; B1; C1; }
+  { rank=same; A2; B2; C2; }
+}

@@ -84,7 +84,7 @@ class NewsDataPipeline:
 
     def normalize_text(self, text: str) -> str:
         """
-        Normalization required by professor:
+        Normalization steps to clean up raw extracted text:
         - collapse whitespace/newlines
         - remove obvious boilerplate fragments (light)
         """
