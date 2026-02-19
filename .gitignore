@@ -13,3 +13,4 @@ outputs/
 *.csv
 *.log
 .env
+*.mmd
