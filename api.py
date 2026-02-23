@@ -5,8 +5,8 @@ import feedparser
 import urllib.request
 import trafilatura
 
-from main import summarize_textrank_mmr
-
+# from main import summarize_textrank_mmr
+from src.summarizer_model import TextRankMMRSummarizer, SummarizerConfig
 app = FastAPI()
 
 app.add_middleware(
@@ -55,7 +55,11 @@ def summarize(data: dict):
 
     # 3) Summarize
     try:
-        result = summarize_textrank_mmr(text, k=5)
+        # result = summarize_textrank_mmr(text, k=5)
+        config = SummarizerConfig(mmr_lambda=0.75, blend_alpha=0.7)
+        summarizer = TextRankMMRSummarizer(config)
+        result = summarizer.summarize(text, k=5)
+        return {"summary": result["summary"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Summarizer crashed: {e}")
 

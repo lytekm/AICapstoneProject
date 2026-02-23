@@ -14,3 +14,6 @@ outputs/
 *.log
 .env
 *.mmd
+
+# Generated diagrams
+docs/diagrams/*.svg
