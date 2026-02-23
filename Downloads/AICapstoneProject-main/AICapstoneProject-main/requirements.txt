@@ -1,0 +1,10 @@
+numpy
+scikit-learn
+rouge-score
+feedparser
+pandas
+nltk
+trafilatura
+datasets
+evaluate
+pyarrow
