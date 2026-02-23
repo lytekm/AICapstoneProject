@@ -9,4 +9,4 @@ datasets
 evaluate
 pyarrow
 fastapi
-uvicorn - standard
+uvicorn[standard]
