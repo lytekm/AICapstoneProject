@@ -8,3 +8,5 @@ trafilatura
 datasets
 evaluate
 pyarrow
+fastapi
+uvicorn - standard
