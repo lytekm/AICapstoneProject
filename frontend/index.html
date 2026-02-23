@@ -1,0 +1,536 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AI News Summarizer (CBC)</title>
+  <style>
+    :root{
+      --bg:#ffffff;
+      --panel:#ffffff;
+      --panel2:#fafafa;
+      --text:#111827;
+      --muted:#6b7280;
+      --border:#e5e7eb;
+      --shadow: 0 10px 30px rgba(17,24,39,.08);
+      --radius:16px;
+      --brand:#e11d48; /* CBC-ish red */
+      --btn:#111827;
+      --btnText:#ffffff;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
+      color:var(--text);
+      min-height:100vh;
+      padding:22px 14px 40px;
+    }
+    .wrap{max-width:1100px;margin:0 auto}
+    header{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:22px;
+      box-shadow:var(--shadow);
+      padding:16px 16px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      margin-bottom:14px;
+    }
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width: 260px;
+    }
+    .logo{
+      width:46px;height:46px;
+      border-radius:14px;
+      border:1px solid var(--border);
+      background:#fff;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+    }
+    .logo img{width:100%;height:100%;object-fit:cover}
+    h1{
+      font-size:18px;
+      margin:0;
+      line-height:1.2;
+      letter-spacing:.2px;
+    }
+    .sub{
+      margin:3px 0 0;
+      color:var(--muted);
+      font-size:12.5px;
+      line-height:1.35;
+    }
+    .badge{
+      font-size:12px;
+      color:var(--muted);
+      border:1px solid var(--border);
+      background:var(--panel2);
+      padding:8px 10px;
+      border-radius:999px;
+      white-space:nowrap;
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap:14px;
+    }
+
+    .card{
+      background:var(--panel);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      overflow:hidden;
+    }
+    .card .hd{
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+      display:flex;align-items:center;justify-content:space-between;
+      gap:12px;
+      background:linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
+    }
+    .card .hd h2{
+      margin:0;
+      font-size:14px;
+      letter-spacing:.2px;
+      color:var(--text);
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .pill{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:var(--panel2);
+      color:var(--muted);
+      font-weight:600;
+    }
+    .card .bd{padding:16px}
+
+    label{font-size:12px;color:var(--muted); display:block; margin-bottom:6px;}
+    select, input{
+      width:100%;
+      background:#fff;
+      border:1px solid var(--border);
+      color:var(--text);
+      padding:10px 12px;
+      border-radius:12px;
+      outline:none;
+    }
+    select:focus, input:focus{
+      border-color:#cbd5e1;
+      box-shadow:0 0 0 4px rgba(59,130,246,.10);
+    }
+
+    button{
+      border:1px solid var(--border);
+      background:#fff;
+      color:var(--text);
+      padding:10px 14px;
+      border-radius:12px;
+      cursor:pointer;
+      transition:transform .06s ease, background .2s ease, box-shadow .2s ease;
+      font-weight:700;
+      letter-spacing:.2px;
+    }
+    button:hover{background:#f9fafb}
+    button:active{transform:scale(.98)}
+    button.primary{
+      background:var(--btn);
+      color:var(--btnText);
+      border-color:rgba(0,0,0,.10);
+    }
+    button.primary:hover{
+      background:#0b1220;
+      box-shadow:0 10px 20px rgba(17,24,39,.12);
+    }
+    button.accent{
+      background:var(--brand);
+      color:white;
+      border-color:rgba(0,0,0,.08);
+    }
+    button.accent:hover{
+      background:#be123c;
+      box-shadow:0 10px 20px rgba(225,29,72,.18);
+    }
+    button:disabled{
+      opacity:.55; cursor:not-allowed;
+    }
+
+    .status{
+      font-size:12px;color:var(--muted);
+      display:flex;align-items:center;gap:8px;
+    }
+    .dot{
+      width:8px;height:8px;border-radius:50%;
+      background:#22c55e;
+      box-shadow:0 0 0 4px rgba(34,197,94,.12);
+    }
+    .dot.busy{background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.16);}
+    .dot.err{background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.14);}
+
+    .meta{
+      display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+    }
+    a{color:#111827; text-decoration:none}
+    a:hover{text-decoration:underline}
+
+    .compare{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+      align-items:start;
+    }
+    @media (max-width: 900px){
+      .compare{grid-template-columns:1fr}
+    }
+
+    .summary{
+      white-space:pre-wrap;
+      line-height:1.65;
+      color:var(--text);
+      background:var(--panel2);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+      min-height:180px;
+    }
+
+    .smallBtnRow{
+      display:flex; gap:10px; flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:6px;
+      border:1px solid var(--border);
+      background:#fff;
+      color:var(--muted);
+    }
+
+    .hint{
+      margin-top:10px;
+      color:var(--muted);
+      font-size:12px;
+      line-height:1.45;
+    }
+
+    .tag{
+      font-size:11px;
+      font-weight:800;
+      color:#fff;
+      background:var(--brand);
+      padding:4px 8px;
+      border-radius:999px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Header with CBC logo -->
+    <header>
+      <div class="brand">
+        <div class="logo" title="CBC">
+          <!-- Public CBC logo (remote). If it doesn't load, it will just be an empty box. -->
+          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/CBC_Logo_1992.svg/256px-CBC_Logo_1992.svg.png" alt="CBC logo">
+        </div>
+        <div>
+          <h1>AI News Summarizer <span class="tag">CBC</span></h1>
+          <p class="sub">Fetch headlines, choose two articles, and generate side-by-side extractive summaries (TextRank + MMR).</p>
+        </div>
+      </div>
+      <div class="badge">Backend: <span class="kbd">http://127.0.0.1:8000</span></div>
+    </header>
+
+    <div class="grid">
+
+      <!-- Controls -->
+      <section class="card">
+        <div class="hd">
+          <h2>Controls <span class="pill">Step 1</span></h2>
+          <div class="status" id="status">
+            <span class="dot" id="dot"></span>
+            <span id="statusText">Ready</span>
+          </div>
+        </div>
+        <div class="bd">
+          <div class="smallBtnRow">
+            <button class="primary" id="btnFetch">Fetch Articles</button>
+            <button class="accent" id="btnSummarizeBoth" disabled>Summarize A + B</button>
+            <button id="btnClear">Clear</button>
+            <a class="badge" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">Open API Docs →</a>
+          </div>
+
+          <div class="row">
+            <div style="flex:1; min-width:260px;">
+              <label for="k">Summary length (k sentences)</label>
+              <input id="k" type="number" value="5" min="1" max="10" />
+            </div>
+            <div style="flex:2; min-width:260px;">
+              <div class="hint">
+                Tip: try <span class="kbd">k=3</span> for short summaries or <span class="kbd">k=7</span> for more detail.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Comparison Dashboard Start -->
+      <section class="card">
+        <div class="hd">
+          <h2>Comparison Dashboard <span class="pill">Step 2</span></h2>
+          <div class="badge" id="metaBar">Pick two articles</div>
+        </div>
+        <div class="bd">
+
+          <div class="compare">
+            <!-- Column A -->
+            <div>
+              <label for="articleA">Article A</label>
+              <select id="articleA">
+                <option value="">Click “Fetch Articles” first</option>
+              </select>
+              <div class="meta">
+                <div><a id="openA" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article A →</a></div>
+                <div id="timeA">—</div>
+              </div>
+
+              <h3 style="margin:12px 0 8px; font-size:13px;">Summary A</h3>
+              <div class="summary" id="summaryA">No summary yet.</div>
+            </div>
+
+            <!-- Column B -->
+            <div>
+              <label for="articleB">Article B</label>
+              <select id="articleB">
+                <option value="">Click “Fetch Articles” first</option>
+              </select>
+              <div class="meta">
+                <div><a id="openB" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article B →</a></div>
+                <div id="timeB">—</div>
+              </div>
+
+              <h3 style="margin:12px 0 8px; font-size:13px;">Summary B</h3>
+              <div class="summary" id="summaryB">No summary yet.</div>
+            </div>
+          </div>
+
+          <div class="hint" style="margin-top:14px;">
+            Next we can add: shared keywords, common themes, and “differences” bullets (Trend feature).
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <script>
+    const API = "http://127.0.0.1:8000";
+
+    const btnFetch = document.getElementById("btnFetch");
+    const btnSummarizeBoth = document.getElementById("btnSummarizeBoth");
+    const btnClear = document.getElementById("btnClear");
+
+    const articleA = document.getElementById("articleA");
+    const articleB = document.getElementById("articleB");
+    const kInput = document.getElementById("k");
+
+    const summaryA = document.getElementById("summaryA");
+    const summaryB = document.getElementById("summaryB");
+
+    const statusText = document.getElementById("statusText");
+    const dot = document.getElementById("dot");
+    const metaBar = document.getElementById("metaBar");
+
+    const openA = document.getElementById("openA");
+    const openB = document.getElementById("openB");
+    const timeA = document.getElementById("timeA");
+    const timeB = document.getElementById("timeB");
+
+    function setStatus(type, text){
+      statusText.textContent = text;
+      dot.classList.remove("busy","err");
+      if(type === "busy") dot.classList.add("busy");
+      if(type === "err") dot.classList.add("err");
+    }
+
+    function nowTime(){
+      return new Date().toLocaleString();
+    }
+
+    function setOpenLink(anchor, url){
+      if(!url){
+        anchor.style.display="none";
+        anchor.href="#";
+        return;
+      }
+      anchor.href=url;
+      anchor.style.display="inline";
+    }
+
+    function enableSummarizeIfReady(){
+      const ready = !!articleA.value && !!articleB.value;
+      btnSummarizeBoth.disabled = !ready;
+      metaBar.textContent = ready ? "Ready to summarize A + B" : "Pick two articles";
+    }
+
+    async function fetchArticles(){
+      setStatus("busy","Fetching articles...");
+      btnFetch.disabled = true;
+      btnSummarizeBoth.disabled = true;
+
+      // reset UI
+      summaryA.textContent = "No summary yet.";
+      summaryB.textContent = "No summary yet.";
+      timeA.textContent = "—";
+      timeB.textContent = "—";
+      setOpenLink(openA, "");
+      setOpenLink(openB, "");
+      metaBar.textContent = "Loading articles...";
+
+      try{
+        const res = await fetch(`${API}/api/articles`);
+        const data = await res.json();
+        const articles = Array.isArray(data) ? data : data.articles;
+
+        const makeOptions = () => {
+          const frag = document.createDocumentFragment();
+          const first = document.createElement("option");
+          first.value = "";
+          first.textContent = "Select an article";
+          frag.appendChild(first);
+
+          articles.forEach(a => {
+            const opt = document.createElement("option");
+            opt.value = a.link;
+            opt.textContent = a.title;
+            frag.appendChild(opt);
+          });
+          return frag;
+        };
+
+        articleA.innerHTML = "";
+        articleB.innerHTML = "";
+        articleA.appendChild(makeOptions());
+        articleB.appendChild(makeOptions());
+
+        setStatus("ok", `Loaded ${articles.length} articles`);
+        metaBar.textContent = "Pick two articles";
+      }catch(e){
+        setStatus("err","Failed to fetch articles");
+        metaBar.textContent = "Error loading articles";
+        articleA.innerHTML = `<option value="">(Error)</option>`;
+        articleB.innerHTML = `<option value="">(Error)</option>`;
+      }finally{
+        btnFetch.disabled = false;
+        enableSummarizeIfReady();
+      }
+    }
+
+    async function summarizeOne(url, k){
+      const res = await fetch(`${API}/api/summarize`,{
+        method:"POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ url, k })
+      });
+      const data = await res.json();
+      if(!res.ok){
+        throw new Error(data.detail || "Unknown error");
+      }
+      return data.summary || "(Empty summary)";
+    }
+
+    async function summarizeBoth(){
+      const urlA = articleA.value;
+      const urlB = articleB.value;
+      const k = parseInt(kInput.value || "5", 10);
+
+      if(!urlA || !urlB){
+        alert("Please select both Article A and Article B.");
+        return;
+      }
+
+      setStatus("busy","Summarizing both articles...");
+      btnSummarizeBoth.disabled = true;
+      summaryA.textContent = "Working...";
+      summaryB.textContent = "Working...";
+
+      try{
+        const [sumA, sumB] = await Promise.all([
+          summarizeOne(urlA, k),
+          summarizeOne(urlB, k),
+        ]);
+
+        summaryA.textContent = sumA;
+        summaryB.textContent = sumB;
+        timeA.textContent = `Generated: ${nowTime()} • k=${k}`;
+        timeB.textContent = `Generated: ${nowTime()} • k=${k}`;
+        setStatus("ok","Done");
+      }catch(err){
+        setStatus("err","Summary failed");
+        const msg = err?.message || "Unknown error";
+        summaryA.textContent = `Error: ${msg}`;
+        summaryB.textContent = `Error: ${msg}`;
+      }finally{
+        enableSummarizeIfReady();
+      }
+    }
+
+    function clearAll(){
+      articleA.value = "";
+      articleB.value = "";
+      summaryA.textContent = "No summary yet.";
+      summaryB.textContent = "No summary yet.";
+      timeA.textContent = "—";
+      timeB.textContent = "—";
+      setOpenLink(openA, "");
+      setOpenLink(openB, "");
+      setStatus("ok","Ready");
+      metaBar.textContent = "Pick two articles";
+      btnSummarizeBoth.disabled = true;
+    }
+
+    // events
+    btnFetch.addEventListener("click", fetchArticles);
+    btnSummarizeBoth.addEventListener("click", summarizeBoth);
+    btnClear.addEventListener("click", clearAll);
+
+    articleA.addEventListener("change", () => {
+      setOpenLink(openA, articleA.value);
+      enableSummarizeIfReady();
+    });
+    articleB.addEventListener("change", () => {
+      setOpenLink(openB, articleB.value);
+      enableSummarizeIfReady();
+    });
+
+    // initial
+    enableSummarizeIfReady();
+  </script>
+</body>
+</html>
