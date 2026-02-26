@@ -4,84 +4,173 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>AI News Summarizer (CBC)</title>
+
   <style>
     :root{
-      --bg:#ffffff;
-      --panel:#ffffff;
-      --panel2:#fafafa;
-      --text:#111827;
-      --muted:#6b7280;
-      --border:#e5e7eb;
-      --shadow: 0 10px 30px rgba(17,24,39,.08);
-      --radius:16px;
-      --brand:#e11d48; /* CBC-ish red */
-      --btn:#111827;
-      --btnText:#ffffff;
+      /* Dark Purple + Burgundy Theme */
+      --bg0:#0b0612;
+      --bg1:#12081f;
+      --panel:#160b25;
+      --panel2:#10071b;
+      --border: rgba(255,255,255,.10);
+      --text:#f3f4ff;
+      --muted:#cbbfe6;
+
+      --purple:#7c3aed;
+      --purple2:#5b21b6;
+      --burgundy:#be123c;
+      --burgundy2:#9f1239;
+
+      --shadow: 0 18px 50px rgba(0,0,0,.45);
+      --radius:18px;
     }
-    *{box-sizing:border-box}
+
+    *{ box-sizing:border-box; }
     body{
       margin:0;
       font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-      background:linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
       color:var(--text);
       min-height:100vh;
       padding:22px 14px 40px;
+
+      background:
+        radial-gradient(900px 500px at 10% 0%, rgba(124,58,237,.20) 0%, transparent 60%),
+        radial-gradient(900px 500px at 90% 10%, rgba(190,18,60,.18) 0%, transparent 60%),
+        radial-gradient(700px 500px at 55% 115%, rgba(91,33,182,.18) 0%, transparent 65%),
+        linear-gradient(180deg, var(--bg1), var(--bg0));
     }
-    .wrap{max-width:1100px;margin:0 auto}
-    header{
-      background:var(--panel);
-      border:1px solid var(--border);
-      border-radius:22px;
-      box-shadow:var(--shadow);
-      padding:16px 16px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:16px;
-      margin-bottom:14px;
-    }
+
+    .wrap{ max-width:1140px; margin:0 auto; }
+
+header{
+  position: relative;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:16px 18px;
+  border-radius:26px;
+
+  /* Glass */
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow:
+    0 18px 55px rgba(0,0,0,.50),
+    inset 0 1px 0 rgba(255,255,255,.10);
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  overflow:hidden;
+  margin-bottom:14px;
+}
+
+/* Animated gradient glow behind the header */
+header::before{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  background: conic-gradient(
+    from 180deg,
+    rgba(124,58,237,.55),
+    rgba(190,18,60,.48),
+    rgba(91,33,182,.50),
+    rgba(124,58,237,.55)
+  );
+  filter: blur(18px);
+  opacity:.55;
+  animation: glowSpin 10s linear infinite;
+  z-index:0;
+}
+
+/* Subtle highlight layer */
+header::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  background: radial-gradient(900px 220px at 20% 0%, rgba(255,255,255,.10), transparent 60%);
+  z-index:0;
+}
+
+/* Make header content sit above glow layers */
+header > *{
+  position:relative;
+  z-index:1;
+}
+
+@keyframes glowSpin{
+  to{ transform: rotate(360deg); }
+}
+
     .brand{
       display:flex;
       align-items:center;
       gap:12px;
-      min-width: 260px;
+      min-width: 280px;
     }
-    .logo{
-      width:46px;height:46px;
-      border-radius:14px;
+
+    .logos{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+
+    .logoBox{
+      width:46px; height:46px;
+      border-radius:16px;
       border:1px solid var(--border);
-      background:#fff;
+      background: rgba(255,255,255,.06);
       display:grid;
       place-items:center;
       overflow:hidden;
     }
-    .logo img{width:100%;height:100%;object-fit:cover}
-    h1{
-      font-size:18px;
-      margin:0;
-      line-height:1.2;
-      letter-spacing:.2px;
+    .logoBox img{ width:100%; height:100%; object-fit:cover; filter: contrast(1.1) brightness(1.02); }
+
+        .miniLogo{
+      width:48px; height:48px;
+      border-radius:18px;
+      border:1px solid rgba(255,255,255,.14);
+      background:
+        radial-gradient(circle at 30% 25%, rgba(255,255,255,.18), transparent 45%),
+        linear-gradient(135deg, rgba(124,58,237,.92), rgba(190,18,60,.72));
+      display:grid;
+      place-items:center;
+      box-shadow:
+        0 14px 26px rgba(0,0,0,.40),
+        inset 0 1px 0 rgba(255,255,255,.14);
     }
-    .sub{
-      margin:3px 0 0;
-      color:var(--muted);
-      font-size:12.5px;
-      line-height:1.35;
-    }
+    .miniLogo svg{ width:26px; height:26px; }
+      h1{
+        margin:0;
+        font-size:18px;
+        letter-spacing:.2px;
+        line-height:1.2;
+      }
+      .sub{
+        margin:4px 0 0;
+        color:rgba(243,244,255,.78);
+        font-size:12.5px;
+        line-height:1.35;
+      }
+
     .badge{
       font-size:12px;
       color:var(--muted);
       border:1px solid var(--border);
-      background:var(--panel2);
+      background: rgba(255,255,255,.05);
       padding:8px 10px;
       border-radius:999px;
       white-space:nowrap;
     }
-    .row{
-      display:flex;
-      gap:10px;
-      align-items:center;
-      flex-wrap:wrap;
+
+    .kbd{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size:11px;
+      padding:2px 6px;
+      border-radius:6px;
+      border:1px solid var(--border);
+      background: rgba(0,0,0,.25);
+      color:var(--muted);
     }
 
     .grid{
@@ -91,43 +180,60 @@
     }
 
     .card{
-      background:var(--panel);
       border:1px solid var(--border);
       border-radius:var(--radius);
       box-shadow:var(--shadow);
       overflow:hidden;
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
     }
-    .card .hd{
+
+    .hd{
       padding:14px 16px;
       border-bottom:1px solid var(--border);
-      display:flex;align-items:center;justify-content:space-between;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
       gap:12px;
-      background:linear-gradient(180deg, #ffffff 0%, #fbfbfb 100%);
+      background: rgba(0,0,0,.15);
     }
-    .card .hd h2{
+    .hd h2{
       margin:0;
       font-size:14px;
       letter-spacing:.2px;
-      color:var(--text);
       display:flex;
-      gap:8px;
       align-items:center;
+      gap:10px;
     }
+
     .pill{
       font-size:11px;
       padding:4px 8px;
       border-radius:999px;
       border:1px solid var(--border);
-      background:var(--panel2);
+      background: rgba(0,0,0,.20);
       color:var(--muted);
-      font-weight:600;
+      font-weight:700;
     }
-    .card .bd{padding:16px}
 
-    label{font-size:12px;color:var(--muted); display:block; margin-bottom:6px;}
+    .bd{ padding:16px; }
+
+    .row{
+      display:flex;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    label{
+      font-size:12px;
+      color:var(--muted);
+      display:block;
+      margin-bottom:6px;
+    }
+
     select, input{
       width:100%;
-      background:#fff;
+      background: rgba(0,0,0,.20);
       border:1px solid var(--border);
       color:var(--text);
       padding:10px 12px;
@@ -135,65 +241,71 @@
       outline:none;
     }
     select:focus, input:focus{
-      border-color:#cbd5e1;
-      box-shadow:0 0 0 4px rgba(59,130,246,.10);
+      box-shadow: 0 0 0 4px rgba(124,58,237,.18);
+      border-color: rgba(124,58,237,.45);
     }
 
     button{
       border:1px solid var(--border);
-      background:#fff;
+      background: rgba(255,255,255,.06);
       color:var(--text);
       padding:10px 14px;
       border-radius:12px;
       cursor:pointer;
-      transition:transform .06s ease, background .2s ease, box-shadow .2s ease;
-      font-weight:700;
+      font-weight:800;
       letter-spacing:.2px;
+      transition: transform .06s ease, filter .2s ease, background .2s ease;
     }
-    button:hover{background:#f9fafb}
-    button:active{transform:scale(.98)}
+    button:hover{ background: rgba(255,255,255,.09); }
+    button:active{ transform: scale(.98); }
+    button:disabled{ opacity:.55; cursor:not-allowed; }
+
     button.primary{
-      background:var(--btn);
-      color:var(--btnText);
-      border-color:rgba(0,0,0,.10);
+      background: linear-gradient(135deg, var(--purple), var(--purple2));
+      border-color: rgba(255,255,255,.16);
     }
-    button.primary:hover{
-      background:#0b1220;
-      box-shadow:0 10px 20px rgba(17,24,39,.12);
-    }
+    button.primary:hover{ filter: brightness(1.07); }
+
     button.accent{
-      background:var(--brand);
-      color:white;
-      border-color:rgba(0,0,0,.08);
+      background: linear-gradient(135deg, var(--burgundy), var(--burgundy2));
+      border-color: rgba(255,255,255,.16);
     }
-    button.accent:hover{
-      background:#be123c;
-      box-shadow:0 10px 20px rgba(225,29,72,.18);
-    }
-    button:disabled{
-      opacity:.55; cursor:not-allowed;
+    button.accent:hover{ filter: brightness(1.06); }
+
+    .smallBtnRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
     }
 
     .status{
-      font-size:12px;color:var(--muted);
-      display:flex;align-items:center;gap:8px;
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      gap:8px;
     }
     .dot{
-      width:8px;height:8px;border-radius:50%;
+      width:8px; height:8px;
+      border-radius:50%;
       background:#22c55e;
-      box-shadow:0 0 0 4px rgba(34,197,94,.12);
+      box-shadow:0 0 0 4px rgba(34,197,94,.14);
     }
-    .dot.busy{background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.16);}
-    .dot.err{background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.14);}
+    .dot.busy{ background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.16); }
+    .dot.err{ background:#ef4444; box-shadow:0 0 0 4px rgba(239,68,68,.14); }
 
     .meta{
-      display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
       margin-top:10px;
       color:var(--muted);
       font-size:12px;
     }
-    a{color:#111827; text-decoration:none}
-    a:hover{text-decoration:underline}
+    a{ color:#e9d5ff; text-decoration:none; }
+    a:hover{ text-decoration:underline; }
 
     .compare{
       display:grid;
@@ -202,68 +314,104 @@
       align-items:start;
     }
     @media (max-width: 900px){
-      .compare{grid-template-columns:1fr}
+      .compare{ grid-template-columns:1fr; }
     }
 
     .summary{
       white-space:pre-wrap;
       line-height:1.65;
-      color:var(--text);
-      background:var(--panel2);
+      background: rgba(0,0,0,.22);
       border:1px solid var(--border);
       border-radius:14px;
       padding:14px;
       min-height:180px;
     }
 
-    .smallBtnRow{
-      display:flex; gap:10px; flex-wrap:wrap;
-      margin-bottom:12px;
-    }
-
-    .kbd{
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-      font-size:11px;
-      padding:2px 6px;
-      border-radius:6px;
-      border:1px solid var(--border);
-      background:#fff;
-      color:var(--muted);
-    }
-
     .hint{
-      margin-top:10px;
+      margin-top:12px;
       color:var(--muted);
       font-size:12px;
       line-height:1.45;
     }
 
-    .tag{
-      font-size:11px;
-      font-weight:800;
-      color:#fff;
-      background:var(--brand);
-      padding:4px 8px;
+    /* Loading spinner */
+    .spinner{
+      width:16px; height:16px;
+      border-radius:50%;
+      border:2px solid rgba(255,255,255,.25);
+      border-top-color: rgba(255,255,255,.85);
+      display:inline-block;
+      animation: spin .8s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg); } }
+
+    /* Trend box */
+    .trendGrid{
+      display:grid;
+      grid-template-columns: 1fr 1fr;
+      gap:14px;
+      margin-top:14px;
+    }
+    @media (max-width: 900px){
+      .trendGrid{ grid-template-columns:1fr; }
+    }
+    .trendCard{
+      background: rgba(0,0,0,.22);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:14px;
+    }
+    .trendTitle{
+      margin:0 0 10px;
+      font-size:13px;
+      display:flex;
+      gap:8px;
+      align-items:center;
+    }
+    .chipWrap{ display:flex; flex-wrap:wrap; gap:8px; }
+    .chip{
+      font-size:12px;
+      padding:6px 10px;
       border-radius:999px;
+      border:1px solid var(--border);
+      background: rgba(255,255,255,.06);
+      color:var(--text);
+    }
+    .chip.alt{
+      background: rgba(190,18,60,.16);
+      border-color: rgba(190,18,60,.35);
     }
   </style>
 </head>
+
 <body>
   <div class="wrap">
 
-    <!-- Header with CBC logo -->
     <header>
       <div class="brand">
-        <div class="logo" title="CBC">
-          <!-- Public CBC logo (remote). If it doesn't load, it will just be an empty box. -->
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/CBC_Logo_1992.svg/256px-CBC_Logo_1992.svg.png" alt="CBC logo">
-        </div>
+        <div class="logos">
+         
+          <div class="logos">
+            <div class="miniLogo" title="AI">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M7 14.5c-1.9 0-3.5-1.6-3.5-3.5S5.1 7.5 7 7.5c.4-2.1 2.2-3.7 4.5-3.7 2.5 0 4.5 2 4.5 4.5v.3c1.9.4 3.4 2.1 3.4 4.2 0 2.4-1.9 4.4-4.3 4.4H7Z"
+                      stroke="rgba(255,255,255,.92)" stroke-width="1.6" stroke-linecap="round" />
+                <path d="M9.2 16.8 11 12l1.8 4.8M10 14.8h2"
+                      stroke="rgba(255,255,255,.92)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M14.6 12v4.8"
+                      stroke="rgba(255,255,255,.92)" stroke-width="1.6" stroke-linecap="round"/>
+              </svg>
+            </div>
+          </div>  
+
         <div>
-          <h1>AI News Summarizer <span class="tag">CBC</span></h1>
-          <p class="sub">Fetch headlines, choose two articles, and generate side-by-side extractive summaries (TextRank + MMR).</p>
+          <h1>AI News Summarizer <span class="pill">CBC</span></h1>
+          <p class="sub">Choose 1 or 2 articles, generate summaries, and view common topics (Trend feature).</p>
         </div>
       </div>
-      <div class="badge">Backend: <span class="kbd">http://127.0.0.1:8000</span></div>
+
+      <div class="badge">Backend: <span class="kbd" id="backendLabel">http://127.0.0.1:8000</span></div>
     </header>
 
     <div class="grid">
@@ -272,48 +420,66 @@
       <section class="card">
         <div class="hd">
           <h2>Controls <span class="pill">Step 1</span></h2>
-          <div class="status" id="status">
+          <div class="status">
             <span class="dot" id="dot"></span>
             <span id="statusText">Ready</span>
           </div>
         </div>
+
         <div class="bd">
           <div class="smallBtnRow">
             <button class="primary" id="btnFetch">Fetch Articles</button>
-            <button class="accent" id="btnSummarizeBoth" disabled>Summarize A + B</button>
+            <button class="accent" id="btnSummarize" disabled>Summarize</button>
             <button id="btnClear">Clear</button>
             <a class="badge" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">Open API Docs →</a>
           </div>
 
           <div class="row">
             <div style="flex:1; min-width:260px;">
+              <label>Mode</label>
+              <div class="row" style="gap:14px; margin-top:2px;">
+                <label style="display:flex; gap:8px; align-items:center; margin:0; color:var(--text); font-size:13px;">
+                  <input type="radio" name="mode" value="one" checked />
+                  Summarize 1 article
+                </label>
+
+                <label style="display:flex; gap:8px; align-items:center; margin:0; color:var(--text); font-size:13px;">
+                  <input type="radio" name="mode" value="two" />
+                  Compare 2 articles
+                </label>
+              </div>
+            </div>
+
+            <div style="flex:1; min-width:220px;">
               <label for="k">Summary length (k sentences)</label>
               <input id="k" type="number" value="5" min="1" max="10" />
             </div>
-            <div style="flex:2; min-width:260px;">
-              <div class="hint">
-                Tip: try <span class="kbd">k=3</span> for short summaries or <span class="kbd">k=7</span> for more detail.
+
+            <div style="flex:1; min-width:260px;">
+              <div class="hint" style="margin-top:18px;">
+                Tip: try <span class="kbd">k=3</span> short, <span class="kbd">k=7</span> more detail.
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- Comparison Dashboard Start -->
+      <!-- Dashboard -->
       <section class="card">
         <div class="hd">
           <h2>Comparison Dashboard <span class="pill">Step 2</span></h2>
-          <div class="badge" id="metaBar">Pick two articles</div>
+          <div class="badge" id="metaBar">Pick article(s)</div>
         </div>
-        <div class="bd">
 
-          <div class="compare">
+        <div class="bd">
+          <div class="compare" id="compareGrid">
             <!-- Column A -->
             <div>
               <label for="articleA">Article A</label>
               <select id="articleA">
                 <option value="">Click “Fetch Articles” first</option>
               </select>
+
               <div class="meta">
                 <div><a id="openA" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article A →</a></div>
                 <div id="timeA">—</div>
@@ -324,11 +490,12 @@
             </div>
 
             <!-- Column B -->
-            <div>
+            <div id="colB">
               <label for="articleB">Article B</label>
               <select id="articleB">
                 <option value="">Click “Fetch Articles” first</option>
               </select>
+
               <div class="meta">
                 <div><a id="openB" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article B →</a></div>
                 <div id="timeB">—</div>
@@ -339,8 +506,23 @@
             </div>
           </div>
 
-          <div class="hint" style="margin-top:14px;">
-            Next we can add: shared keywords, common themes, and “differences” bullets (Trend feature).
+          <!-- Trend / Common Topics -->
+          <div class="trendGrid" id="trendGrid">
+            <div class="trendCard">
+              <h4 class="trendTitle">Trend / Common Topics <span class="pill" id="trendModeLabel">Auto</span></h4>
+              <div class="chipWrap" id="commonTopics">
+                <span class="chip alt">No topics yet</span>
+              </div>
+              <div class="hint">Shows common keywords (or top keywords if 1 article).</div>
+            </div>
+
+            <div class="trendCard">
+              <h4 class="trendTitle">Top Keywords (Article A)</h4>
+              <div class="chipWrap" id="keywordsA">
+                <span class="chip">—</span>
+              </div>
+              <div class="hint">Simple keyword extraction (client-side) from summary text.</div>
+            </div>
           </div>
 
         </div>
@@ -353,11 +535,13 @@
     const API = "http://127.0.0.1:8000";
 
     const btnFetch = document.getElementById("btnFetch");
-    const btnSummarizeBoth = document.getElementById("btnSummarizeBoth");
+    const btnSummarize = document.getElementById("btnSummarize");
     const btnClear = document.getElementById("btnClear");
 
     const articleA = document.getElementById("articleA");
     const articleB = document.getElementById("articleB");
+    const colB = document.getElementById("colB");
+
     const kInput = document.getElementById("k");
 
     const summaryA = document.getElementById("summaryA");
@@ -371,6 +555,13 @@
     const openB = document.getElementById("openB");
     const timeA = document.getElementById("timeA");
     const timeB = document.getElementById("timeB");
+
+    const commonTopics = document.getElementById("commonTopics");
+    const keywordsA = document.getElementById("keywordsA");
+    const trendModeLabel = document.getElementById("trendModeLabel");
+
+    const backendLabel = document.getElementById("backendLabel");
+    backendLabel.textContent = API;
 
     function setStatus(type, text){
       statusText.textContent = text;
@@ -393,25 +584,121 @@
       anchor.style.display="inline";
     }
 
-    function enableSummarizeIfReady(){
-      const ready = !!articleA.value && !!articleB.value;
-      btnSummarizeBoth.disabled = !ready;
-      metaBar.textContent = ready ? "Ready to summarize A + B" : "Pick two articles";
+    function getMode(){
+      return document.querySelector('input[name="mode"]:checked').value; // "one" or "two"
     }
 
-    async function fetchArticles(){
-      setStatus("busy","Fetching articles...");
-      btnFetch.disabled = true;
-      btnSummarizeBoth.disabled = true;
+    function applyModeUI(){
+      const mode = getMode();
+      if(mode === "one"){
+        colB.style.display = "none";
+        btnSummarize.textContent = "Summarize A";
+        metaBar.textContent = "Pick Article A";
+        trendModeLabel.textContent = "1 Article";
+      }else{
+        colB.style.display = "";
+        btnSummarize.textContent = "Summarize A + B";
+        metaBar.textContent = "Pick two articles";
+        trendModeLabel.textContent = "2 Articles";
+      }
+      updateSummarizeEnabled();
+      resetTrends();
+    }
 
-      // reset UI
+    function updateSummarizeEnabled(){
+      const mode = getMode();
+      const ready = (mode === "one") ? !!articleA.value : (!!articleA.value && !!articleB.value);
+      btnSummarize.disabled = !ready;
+    }
+
+    // ---------- Trend / keywords ----------
+    const STOPWORDS = new Set([
+      "a","an","and","are","as","at","be","but","by","for","from","has","have","he","her","his","i",
+      "in","into","is","it","its","just","may","more","my","not","of","on","or","our","she","so","than",
+      "that","the","their","them","there","they","this","to","was","we","were","will","with","you","your",
+      "said","says","also","who","what","when","where","why","how","about","after","before","over","under",
+      "can","could","would","should","than","then","them","these","those"
+    ]);
+
+    function tokenize(text){
+      return (text || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, " ")
+        .split(/\s+/)
+        .map(w => w.trim())
+        .filter(w => w.length >= 3 && !STOPWORDS.has(w));
+    }
+
+    function topKeywords(text, topN=8){
+      const tokens = tokenize(text);
+      const counts = new Map();
+      for(const t of tokens){
+        counts.set(t, (counts.get(t) || 0) + 1);
+      }
+      return [...counts.entries()]
+        .sort((a,b) => b[1]-a[1])
+        .slice(0, topN)
+        .map(([w]) => w);
+    }
+
+    function commonKeywords(text1, text2, topN=10){
+      const a = new Set(topKeywords(text1, 20));
+      const b = new Set(topKeywords(text2, 20));
+      const inter = [...a].filter(x => b.has(x));
+      return inter.slice(0, topN);
+    }
+
+    function renderChips(container, words, alt=false){
+      container.innerHTML = "";
+      if(!words || words.length === 0){
+        const s = document.createElement("span");
+        s.className = "chip " + (alt ? "alt" : "");
+        s.textContent = "—";
+        container.appendChild(s);
+        return;
+      }
+      for(const w of words){
+        const c = document.createElement("span");
+        c.className = "chip " + (alt ? "alt" : "");
+        c.textContent = w;
+        container.appendChild(c);
+      }
+    }
+
+    function resetTrends(){
+      renderChips(commonTopics, ["No topics yet"], true);
+      renderChips(keywordsA, ["—"]);
+    }
+
+    function updateTrends(){
+      const mode = getMode();
+      const sumA = summaryA.textContent || "";
+      const sumB = summaryB.textContent || "";
+
+      // A keywords always
+      renderChips(keywordsA, topKeywords(sumA, 10));
+
+      if(mode === "one"){
+        renderChips(commonTopics, topKeywords(sumA, 10), true);
+      }else{
+        renderChips(commonTopics, commonKeywords(sumA, sumB, 12), true);
+      }
+    }
+
+    // ---------- API ----------
+    async function fetchArticles(){
+      setStatus("busy", "Fetching articles...");
+      btnFetch.disabled = true;
+      btnSummarize.disabled = true;
+
+      // reset
       summaryA.textContent = "No summary yet.";
       summaryB.textContent = "No summary yet.";
       timeA.textContent = "—";
       timeB.textContent = "—";
       setOpenLink(openA, "");
       setOpenLink(openB, "");
-      metaBar.textContent = "Loading articles...";
+      resetTrends();
 
       try{
         const res = await fetch(`${API}/api/articles`);
@@ -440,21 +727,21 @@
         articleB.appendChild(makeOptions());
 
         setStatus("ok", `Loaded ${articles.length} articles`);
-        metaBar.textContent = "Pick two articles";
+        applyModeUI();
       }catch(e){
-        setStatus("err","Failed to fetch articles");
-        metaBar.textContent = "Error loading articles";
+        setStatus("err", "Failed to fetch articles");
         articleA.innerHTML = `<option value="">(Error)</option>`;
         articleB.innerHTML = `<option value="">(Error)</option>`;
+        resetTrends();
       }finally{
         btnFetch.disabled = false;
-        enableSummarizeIfReady();
+        updateSummarizeEnabled();
       }
     }
 
     async function summarizeOne(url, k){
-      const res = await fetch(`${API}/api/summarize`,{
-        method:"POST",
+      const res = await fetch(`${API}/api/summarize`, {
+        method: "POST",
         headers: {"Content-Type":"application/json"},
         body: JSON.stringify({ url, k })
       });
@@ -465,39 +752,61 @@
       return data.summary || "(Empty summary)";
     }
 
-    async function summarizeBoth(){
+    function setLoading(el, msg="Working..."){
+      el.innerHTML = `<span class="spinner"></span> <span style="margin-left:8px;">${msg}</span>`;
+    }
+
+    async function summarize(){
+      const mode = getMode();
       const urlA = articleA.value;
       const urlB = articleB.value;
       const k = parseInt(kInput.value || "5", 10);
 
-      if(!urlA || !urlB){
-        alert("Please select both Article A and Article B.");
+      if(!urlA || (mode === "two" && !urlB)){
+        alert("Please select the required article(s).");
         return;
       }
 
-      setStatus("busy","Summarizing both articles...");
-      btnSummarizeBoth.disabled = true;
-      summaryA.textContent = "Working...";
-      summaryB.textContent = "Working...";
+      setStatus("busy", "Summarizing...");
+      btnSummarize.disabled = true;
+
+      // loading UI
+      setLoading(summaryA, "Summarizing Article A...");
+      timeA.textContent = "—";
+      if(mode === "two"){
+        setLoading(summaryB, "Summarizing Article B...");
+        timeB.textContent = "—";
+      }else{
+        summaryB.textContent = "No summary yet.";
+        timeB.textContent = "—";
+      }
 
       try{
-        const [sumA, sumB] = await Promise.all([
-          summarizeOne(urlA, k),
-          summarizeOne(urlB, k),
-        ]);
+        if(mode === "one"){
+          const sumA = await summarizeOne(urlA, k);
+          summaryA.textContent = sumA;
+          timeA.textContent = `Generated: ${nowTime()} • k=${k}`;
+        }else{
+          const [sumA, sumB] = await Promise.all([
+            summarizeOne(urlA, k),
+            summarizeOne(urlB, k),
+          ]);
+          summaryA.textContent = sumA;
+          summaryB.textContent = sumB;
+          timeA.textContent = `Generated: ${nowTime()} • k=${k}`;
+          timeB.textContent = `Generated: ${nowTime()} • k=${k}`;
+        }
 
-        summaryA.textContent = sumA;
-        summaryB.textContent = sumB;
-        timeA.textContent = `Generated: ${nowTime()} • k=${k}`;
-        timeB.textContent = `Generated: ${nowTime()} • k=${k}`;
-        setStatus("ok","Done");
+        updateTrends();
+        setStatus("ok", "Done");
       }catch(err){
-        setStatus("err","Summary failed");
         const msg = err?.message || "Unknown error";
+        setStatus("err", "Summary failed");
         summaryA.textContent = `Error: ${msg}`;
-        summaryB.textContent = `Error: ${msg}`;
+        if(mode === "two") summaryB.textContent = `Error: ${msg}`;
+        resetTrends();
       }finally{
-        enableSummarizeIfReady();
+        updateSummarizeEnabled();
       }
     }
 
@@ -510,27 +819,32 @@
       timeB.textContent = "—";
       setOpenLink(openA, "");
       setOpenLink(openB, "");
-      setStatus("ok","Ready");
-      metaBar.textContent = "Pick two articles";
-      btnSummarizeBoth.disabled = true;
+      setStatus("ok", "Ready");
+      applyModeUI();
+      resetTrends();
     }
 
     // events
     btnFetch.addEventListener("click", fetchArticles);
-    btnSummarizeBoth.addEventListener("click", summarizeBoth);
+    btnSummarize.addEventListener("click", summarize);
     btnClear.addEventListener("click", clearAll);
 
     articleA.addEventListener("change", () => {
       setOpenLink(openA, articleA.value);
-      enableSummarizeIfReady();
+      updateSummarizeEnabled();
     });
     articleB.addEventListener("change", () => {
       setOpenLink(openB, articleB.value);
-      enableSummarizeIfReady();
+      updateSummarizeEnabled();
     });
 
-    // initial
-    enableSummarizeIfReady();
+    document.querySelectorAll('input[name="mode"]').forEach(r => {
+      r.addEventListener("change", applyModeUI);
+    });
+
+    // init
+    applyModeUI();
+    resetTrends();
   </script>
 </body>
 </html>
