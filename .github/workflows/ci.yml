@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff mypy
+      - run: ruff check src/ api.py tests/
+      - run: mypy src/ api.py --ignore-missing-imports
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - run: pip install pytest pytest-cov httpx ruff mypy
+      - run: python -c "import nltk; nltk.download('punkt_tab', quiet=True)"
+      - run: python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=70 -v
