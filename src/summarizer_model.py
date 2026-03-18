@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -84,7 +85,7 @@ class TextRankMMRSummarizer:
                 break
 
         pr = pr / (pr.sum() + 1e-12)
-        return pr
+        return np.asarray(pr)
 
     def textrank_scores(self, sim: np.ndarray, min_edge: float = 0.1) -> np.ndarray:
         n = sim.shape[0]
@@ -122,7 +123,7 @@ class TextRankMMRSummarizer:
 
         return selected
 
-    def summarize(self, article_text: str, k: int = 5) -> dict[str, object]:
+    def summarize(self, article_text: str, k: int = 5) -> dict[str, Any]:
         cfg = self.config
         sents = self.split_sentences(article_text)
         n = len(sents)

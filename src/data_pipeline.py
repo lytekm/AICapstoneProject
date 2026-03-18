@@ -5,6 +5,7 @@ import ssl
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 import feedparser
 
@@ -16,8 +17,9 @@ except AttributeError:
 else:
     ssl._create_default_https_context = _create_unverified_https_context
 
+trafilatura: Any
 try:
-    import trafilatura  # type: ignore
+    import trafilatura
 except Exception:
     trafilatura = None
 
@@ -65,7 +67,7 @@ class NewsDataPipeline:
                 downloaded = html.decode("utf-8", errors="ignore")
                 text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
                 if text:
-                    return text
+                    return str(text)
 
             s = html.decode("utf-8", errors="ignore")
             s = re.sub(r"(?is)<script.*?>.*?</script>|<style.*?>.*?</style>|<.*?>", " ", s)
@@ -102,14 +104,16 @@ class NewsDataPipeline:
         entries = self.fetch_rss(feed_url, limit=limit)
         articles: list[Article] = []
         for e in entries:
-            raw = self.fetch_article_text(e["url"])
+            url = str(e["url"])
+            title = str(e["title"])
+            raw = self.fetch_article_text(url)
             if not raw:
                 continue
             norm = self.normalize_text(raw)
             stats = self.tokenize_stats(norm)
             if stats["word_count"] > 150:
                 articles.append(Article(
-                    title=e["title"], url=e["url"], published=e.get("published"),
+                    title=title, url=url, published=e.get("published"),
                     fetched_at=fetched_at, raw_text=raw, normalized_text=norm,
                     sentence_count=stats["sentence_count"], word_count=stats["word_count"]
                 ))

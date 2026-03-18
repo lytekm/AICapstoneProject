@@ -41,7 +41,7 @@ class SummarizerTrainer:
             cfg = SummarizerConfig(**params)
             model = TextRankMMRSummarizer(cfg)
 
-            preds = [model.summarize(t, k=k)["summary"] for t in texts]
+            preds: list[str] = [str(model.summarize(t, k=k)["summary"]) for t in texts]
             metrics = self.evaluator.evaluate(preds, references)
             score = metrics.get(self.metric, 0.0)
 

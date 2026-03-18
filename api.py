@@ -42,7 +42,8 @@ def _fetch_url(url: str, timeout: int = REQUEST_TIMEOUT_SEC) -> str:
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return resp.read().decode("utf-8", errors="ignore")
+            html: str = resp.read().decode("utf-8", errors="ignore")
+            return html
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not download article: {e}") from e
 
@@ -119,7 +120,7 @@ def summarize(data: dict[str, Any]) -> dict[str, str]:
         k = _parse_k(data.get("k", DEFAULT_K))
         result = summarizer.summarize(text, k=k)
 
-        summary = result.get("summary", "")
+        summary: str = str(result.get("summary", ""))
         if not summary.strip():
             raise HTTPException(status_code=500, detail="Summarizer returned an empty summary.")
 
