@@ -3,9 +3,8 @@ from __future__ import annotations
 import re
 import ssl
 import urllib.request
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Dict, Optional
 
 import feedparser
 
@@ -26,7 +25,7 @@ except Exception:
 class Article:
     title: str
     url: str
-    published: Optional[str]
+    published: str | None
     fetched_at: str
     raw_text: str
     normalized_text: str
@@ -38,7 +37,7 @@ class NewsDataPipeline:
         self.user_agent = user_agent
         self.timeout_sec = timeout_sec
 
-    def fetch_rss(self, feed_url: str, limit: int = 10) -> List[Dict[str, Optional[str]]]:
+    def fetch_rss(self, feed_url: str, limit: int = 10) -> list[dict[str, str | None]]:
         try:
             req = urllib.request.Request(feed_url, headers={"User-Agent": self.user_agent})
             with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
@@ -65,7 +64,8 @@ class NewsDataPipeline:
             if trafilatura is not None:
                 downloaded = html.decode("utf-8", errors="ignore")
                 text = trafilatura.extract(downloaded, include_comments=False, include_tables=False)
-                if text: return text
+                if text:
+                    return text
 
             s = html.decode("utf-8", errors="ignore")
             s = re.sub(r"(?is)<script.*?>.*?</script>|<style.*?>.*?</style>|<.*?>", " ", s)
@@ -82,7 +82,7 @@ class NewsDataPipeline:
         # 2. General cleaning
         t = text.replace("\u00a0", " ")
         patterns = [
-            r"Advertisement", r"Sign up for our newsletter", 
+            r"Advertisement", r"Sign up for our newsletter",
             r"Follow us on (Twitter|Facebook|Instagram|TikTok)",
             r"© \d{4} (CNN|CBC|Daily Mail|Associated Press)", r"All rights reserved"
         ]
@@ -92,18 +92,19 @@ class NewsDataPipeline:
         t = re.sub(r"\s+", " ", t).strip()
         return t
 
-    def tokenize_stats(self, text: str) -> Dict[str, int]:
+    def tokenize_stats(self, text: str) -> dict[str, int]:
         words = re.findall(r"\b\w+\b", text)
         sentence_count = len([s for s in re.split(r"[.!?]+", text) if len(s.strip()) > 5])
         return {"word_count": len(words), "sentence_count": sentence_count}
 
-    def build_articles(self, feed_url: str, limit: int = 5) -> List[Article]:
+    def build_articles(self, feed_url: str, limit: int = 5) -> list[Article]:
         fetched_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         entries = self.fetch_rss(feed_url, limit=limit)
-        articles: List[Article] = []
+        articles: list[Article] = []
         for e in entries:
             raw = self.fetch_article_text(e["url"])
-            if not raw: continue
+            if not raw:
+                continue
             norm = self.normalize_text(raw)
             stats = self.tokenize_stats(norm)
             if stats["word_count"] > 150:

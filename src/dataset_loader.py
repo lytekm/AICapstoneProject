@@ -1,15 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Tuple, Optional
 
 from datasets import load_dataset  # pip install datasets
 
 
 @dataclass
 class DatasetBatch:
-    texts: List[str]
-    references: List[str]
+    texts: list[str]
+    references: list[str]
 
 
 class CNNDailyMailDatasetLoader:
@@ -28,7 +27,7 @@ class CNNDailyMailDatasetLoader:
     def load(
         self,
         split: str = "train",
-        limit: Optional[int] = 200,
+        limit: int | None = 200,
         shuffle: bool = True,
         seed: int = 42,
     ) -> DatasetBatch:

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
 
 try:
     from rouge_score import rouge_scorer
@@ -26,11 +25,11 @@ class RougeEvaluator:
             raise RuntimeError("rouge-score not installed. Run: pip install rouge-score")
         self.scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
 
-    def evaluate(self, predictions: List[str], references: List[str]) -> Dict[str, float]:
+    def evaluate(self, predictions: list[str], references: list[str]) -> dict[str, float]:
         r1 = r2 = rl = 0.0
         n = max(len(predictions), 1)
 
-        for pred, ref in zip(predictions, references):
+        for pred, ref in zip(predictions, references, strict=False):
             scores = self.scorer.score(ref, pred)
             r1 += scores["rouge1"].fmeasure
             r2 += scores["rouge2"].fmeasure

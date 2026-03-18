@@ -3,7 +3,6 @@ from __future__ import annotations
 import math
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -21,7 +20,7 @@ except Exception:
 @dataclass
 class SummarizerConfig:
     max_features: int = 20000
-    ngram_range: Tuple[int, int] = (1, 2)
+    ngram_range: tuple[int, int] = (1, 2)
     stop_words: str = "english"
     textrank_min_edge: float = 0.1
     mmr_lambda: float = 0.75
@@ -33,10 +32,10 @@ class TextRankMMRSummarizer:
     Build Model module (tokenize sentences + TextRank + MMR).
     """
 
-    def __init__(self, config: Optional[SummarizerConfig] = None):
+    def __init__(self, config: SummarizerConfig | None = None):
         self.config = config or SummarizerConfig()
 
-    def split_sentences(self, text: str) -> List[str]:
+    def split_sentences(self, text: str) -> list[str]:
         text = re.sub(r"\s+", " ", text).strip()
         if not text:
             return []
@@ -44,11 +43,10 @@ class TextRankMMRSummarizer:
         if sent_tokenize is not None:
             try:
                 sents = sent_tokenize(text)
-            except LookupError:
-                # punkt not installed
+            except LookupError as exc:
                 raise RuntimeError(
                     "NLTK punkt not found. Run: python -m nltk.downloader punkt"
-                )
+                ) from exc
         else:
             # fallback
             sents = re.split(r"(?<=[.!?])\s+", text)
@@ -94,16 +92,16 @@ class TextRankMMRSummarizer:
             return np.array([])
         W = sim.copy()
         np.fill_diagonal(W, 0.0)
-        W[W < min_edge] = 0.0
+        W[min_edge > W] = 0.0
         return self.pagerank(W)
 
-    def mmr_select(self, rel: np.ndarray, sim: np.ndarray, k: int, lam: float = 0.75) -> List[int]:
+    def mmr_select(self, rel: np.ndarray, sim: np.ndarray, k: int, lam: float = 0.75) -> list[int]:
         n = rel.shape[0]
         k = max(0, min(k, n))
         if k == 0:
             return []
 
-        selected: List[int] = []
+        selected: list[int] = []
         candidates = set(range(n))
 
         first = int(np.argmax(rel))
@@ -124,7 +122,7 @@ class TextRankMMRSummarizer:
 
         return selected
 
-    def summarize(self, article_text: str, k: int = 5) -> Dict[str, object]:
+    def summarize(self, article_text: str, k: int = 5) -> dict[str, object]:
         cfg = self.config
         sents = self.split_sentences(article_text)
         n = len(sents)

@@ -4,10 +4,11 @@ import json
 import os
 
 from src.dataset_loader import CNNDailyMailDatasetLoader
-from src.trainer import SummarizerTrainer
-from src.summarizer_model import TextRankMMRSummarizer
-from src.evaluator import RougeEvaluator
 from src.diagram_generator import DiagramGenerator
+from src.evaluator import RougeEvaluator
+from src.summarizer_model import TextRankMMRSummarizer
+from src.trainer import SummarizerTrainer
+
 
 def ensure_outputs():
     os.makedirs("outputs", exist_ok=True)
@@ -54,7 +55,7 @@ def main():
     print(f"Saved eval report: {eval_path}")
     print("Test metrics:", test_metrics)
 
-   
+
 
 if __name__ == "__main__":
     main()

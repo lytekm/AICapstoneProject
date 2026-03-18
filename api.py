@@ -7,15 +7,14 @@ from __future__ import annotations
 
 import os
 import urllib.request
-from typing import Any, Dict, List
+from typing import Any
 
 import feedparser
 import trafilatura
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
-from src.summarizer_model import TextRankMMRSummarizer, SummarizerConfig
-
+from src.summarizer_model import SummarizerConfig, TextRankMMRSummarizer
 
 # ----------------------------
 # App setup
@@ -45,7 +44,7 @@ def _fetch_url(url: str, timeout: int = REQUEST_TIMEOUT_SEC) -> str:
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return resp.read().decode("utf-8", errors="ignore")
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not download article: {e}")
+        raise HTTPException(status_code=400, detail=f"Could not download article: {e}") from e
 
 
 def _extract_main_text(html: str) -> str:
@@ -53,7 +52,7 @@ def _extract_main_text(html: str) -> str:
     try:
         text = trafilatura.extract(html) or ""
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Extraction failed: {e}")
+        raise HTTPException(status_code=400, detail=f"Extraction failed: {e}") from e
 
     if len(text.strip()) < MIN_TEXT_CHARS:
         raise HTTPException(
@@ -76,25 +75,25 @@ def _parse_k(value: Any, default: int = DEFAULT_K, k_min: int = 1, k_max: int = 
 # Routes
 # ----------------------------
 @app.get("/api/health")
-def health() -> Dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.get("/api/articles")
-def get_articles() -> List[Dict[str, str]]:
+def get_articles() -> list[dict[str, str]]:
     """Fetch top articles from the default RSS feed."""
     try:
         request = urllib.request.Request(DEFAULT_RSS, headers={"User-Agent": "Mozilla/5.0"})
         with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SEC) as response:
             feed = feedparser.parse(response.read())
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Could not fetch RSS feed: {e}")
+        raise HTTPException(status_code=400, detail=f"Could not fetch RSS feed: {e}") from e
 
     return [{"title": e.title, "link": e.link} for e in feed.entries[:10]]
 
 
 @app.post("/api/summarize")
-def summarize(data: Dict[str, Any]) -> Dict[str, str]:
+def summarize(data: dict[str, Any]) -> dict[str, str]:
     """
     Request body example:
     {
@@ -129,4 +128,5 @@ def summarize(data: Dict[str, Any]) -> Dict[str, str]:
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Summarizer crashed: {e}")
+        raise HTTPException(status_code=500, detail=f"Summarizer crashed: {e}") from e
+

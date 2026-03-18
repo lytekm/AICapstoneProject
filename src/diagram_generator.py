@@ -29,7 +29,6 @@ from __future__ import annotations
 import os
 import shutil
 from dataclasses import dataclass
-from typing import Dict, Optional
 
 try:
     from graphviz import Source
@@ -51,7 +50,7 @@ class DiagramPaths:
 # -----------------------------
 
 class DiagramGenerator:
-    def __init__(self, paths: Optional[DiagramPaths] = None):
+    def __init__(self, paths: DiagramPaths | None = None):
         self.paths = paths or DiagramPaths()
 
     # ---------- helpers ----------
@@ -72,7 +71,7 @@ class DiagramGenerator:
             f.write(content.strip() + "\n")
         return path
 
-    def _render_dot(self, name_no_ext: str, dot_text: str) -> Dict[str, str]:
+    def _render_dot(self, name_no_ext: str, dot_text: str) -> dict[str, str]:
         """
         Render DOT to PNG + SVG using graphviz python package (calls `dot`).
         Returns dict of output paths. Raises if requirements missing.
@@ -88,7 +87,7 @@ class DiagramGenerator:
 
         self._ensure_dir()
 
-        outputs: Dict[str, str] = {}
+        outputs: dict[str, str] = {}
         base = os.path.join(self.paths.out_dir, name_no_ext)
 
         # PNG
@@ -316,7 +315,7 @@ digraph Component_Interaction {
     # Public API
     # -----------------------------
 
-    def generate_all(self, also_write_mermaid: bool = False) -> Dict[str, str]:
+    def generate_all(self, also_write_mermaid: bool = False) -> dict[str, str]:
         """
         Generates DOT + PNG + SVG into docs/diagrams.
         Returns a mapping of artifact keys -> paths.
@@ -327,7 +326,7 @@ digraph Component_Interaction {
         """
         self._ensure_dir()
 
-        outputs: Dict[str, str] = {}
+        outputs: dict[str, str] = {}
 
         diagrams = {
             "ai_capability_architecture": self.ai_capability_architecture_dot(),
@@ -347,7 +346,7 @@ digraph Component_Interaction {
 
         if also_write_mermaid:
             # Minimal Mermaid versions (optional). Keeps your old workflow available.
-            for name in diagrams.keys():
+            for name in diagrams:
                 mmd_path = self._write_text(
                     f"{name}.mmd",
                     f"%% Mermaid version not generated for {name} in Graphviz-first mode.\n"

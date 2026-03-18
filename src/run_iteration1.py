@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-import os
 import csv
-from typing import List
+import os
+
+from src.diagram_generator import DiagramGenerator
 
 from .data_pipeline import NewsDataPipeline
-from .summarizer_model import TextRankMMRSummarizer, SummarizerConfig
-from src.diagram_generator import DiagramGenerator
+from .summarizer_model import SummarizerConfig, TextRankMMRSummarizer
+
 
 def ensure_outputs():
     os.makedirs("outputs", exist_ok=True)
