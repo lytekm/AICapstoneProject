@@ -5,7 +5,6 @@ import ssl
 import urllib.request
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
 
 import feedparser
 
@@ -15,13 +14,12 @@ try:
 except AttributeError:
     pass
 else:
-    ssl._create_default_https_context = _create_unverified_https_context
+    ssl._create_default_https_context = _create_unverified_https_context  # type: ignore[assignment]
 
-trafilatura: Any
 try:
-    import trafilatura
+    import trafilatura  # type: ignore[import-untyped]
 except Exception:
-    trafilatura = None
+    trafilatura = None  # type: ignore[assignment]
 
 @dataclass
 class Article:
