@@ -49,7 +49,6 @@ source = ["src", "api"]
 omit = [
     "src/run_*.py",
     "src/diagram_generator.py",
-    "src/dataset_loader.py",
 ]
 
 [tool.coverage.report]
