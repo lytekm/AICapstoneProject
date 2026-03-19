@@ -1,6 +1,7 @@
 """
-FastAPI Backend: AI Capstone Project - Iteration 1
-Provides endpoints to fetch RSS articles and summarize selected articles.
+FastAPI Backend: AI Capstone Project
+Provides endpoints to fetch RSS articles and summarize selected articles
+with extractive, abstractive, or hybrid modes and persona support.
 """
 
 from __future__ import annotations
@@ -13,13 +14,15 @@ import feedparser
 import trafilatura
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
 
-from src.summarizer_model import SummarizerConfig, TextRankMMRSummarizer
+from src.personas import PERSONAS
+from src.pipeline import SummarizationPipeline
 
 # ----------------------------
 # App setup
 # ----------------------------
-app = FastAPI(title="AI Capstone Summarizer API", version="1.0")
+app = FastAPI(title="AI Capstone Summarizer API", version="2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -32,6 +35,27 @@ DEFAULT_RSS = os.getenv("RSS_FEED_URL", "https://www.cbc.ca/cmlink/rss-business"
 DEFAULT_K = 5
 MIN_TEXT_CHARS = 200
 REQUEST_TIMEOUT_SEC = 20
+
+pipeline = SummarizationPipeline()
+
+
+# ----------------------------
+# Request / Response models
+# ----------------------------
+class SummarizeRequest(BaseModel):
+    url: str
+    k: int = Field(default=DEFAULT_K, ge=1, le=20)
+    mode: str = "extractive"
+    persona: str = "default"
+    length: str = "standard"
+
+
+class SummarizeResponse(BaseModel):
+    summary: str
+    mode: str
+    persona: str
+    confidence: float | None = None
+    flagged_entities: list[str] | None = None
 
 
 # ----------------------------
@@ -93,41 +117,66 @@ def get_articles() -> list[dict[str, str]]:
     return [{"title": e.title, "link": e.link} for e in feed.entries[:10]]
 
 
+@app.get("/api/personas")
+def list_personas() -> dict[str, list[str]]:
+    """Return available persona names."""
+    return {"personas": sorted(PERSONAS.keys())}
+
+
 @app.post("/api/summarize")
-def summarize(data: dict[str, Any]) -> dict[str, str]:
-    """
-    Request body example:
+def summarize(data: dict[str, Any]) -> dict[str, Any]:
+    """Summarize an article with optional mode, persona, and length control.
+
+    Request body:
     {
       "url": "https://example.com/article",
-      "k": 5
+      "k": 5,
+      "mode": "extractive",      // extractive | abstractive | hybrid
+      "persona": "default",      // technical | casual | executive | academic | default
+      "length": "standard"       // brief | standard | detailed
     }
     """
     url = (data.get("url") or "").strip()
     if not url:
         raise HTTPException(status_code=400, detail="Missing 'url' in request body.")
 
-    # 1) Download HTML
-    html = _fetch_url(url)
+    mode = str(data.get("mode", "extractive")).strip().lower()
+    persona = str(data.get("persona", "default")).strip().lower()
+    length = str(data.get("length", "standard")).strip().lower()
+    k = _parse_k(data.get("k", DEFAULT_K))
 
-    # 2) Extract main text
+    # Validate persona early
+    if persona not in PERSONAS:
+        valid = ", ".join(sorted(PERSONAS.keys()))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown persona '{persona}'. Valid options: {valid}",
+        )
+
+    # Download and extract
+    html = _fetch_url(url)
     text = _extract_main_text(html)
 
-    # 3) Summarize using user-provided k
     try:
-        config = SummarizerConfig(mmr_lambda=0.75, blend_alpha=0.7)
-        summarizer = TextRankMMRSummarizer(config)
-
-        k = _parse_k(data.get("k", DEFAULT_K))
-        result = summarizer.summarize(text, k=k)
-
-        summary: str = str(result.get("summary", ""))
-        if not summary.strip():
-            raise HTTPException(status_code=500, detail="Summarizer returned an empty summary.")
-
-        return {"summary": summary}
-
-    except HTTPException:
-        raise
+        result = pipeline.run(
+            text=text, mode=mode, persona=persona, length=length, k=k
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Summarizer crashed: {e}") from e
+        raise HTTPException(status_code=500, detail=f"Pipeline error: {e}") from e
 
+    if not result.summary.strip():
+        raise HTTPException(status_code=500, detail="Pipeline returned an empty summary.")
+
+    response: dict[str, Any] = {
+        "summary": result.summary,
+        "mode": result.mode,
+        "persona": result.persona,
+    }
+
+    if mode in ("hybrid", "abstractive"):
+        response["confidence"] = result.confidence
+        response["flagged_entities"] = result.flagged_entities
+
+    return response
