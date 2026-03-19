@@ -213,3 +213,73 @@ class TestSummarizeResponseFormat:
         assert "persona" in data
         assert "confidence" in data
         assert "flagged_entities" in data
+
+
+class TestStreamEndpoint:
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_returns_sse_content_type(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.get("/api/summarize/stream", params={
+            "url": "https://example.com/article",
+            "mode": "extractive",
+        })
+        assert resp.status_code == 200
+        assert "text/event-stream" in resp.headers["content-type"]
+
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_extractive_stream_contains_done(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.get("/api/summarize/stream", params={
+            "url": "https://example.com/article",
+            "mode": "extractive",
+        })
+        assert "event: done" in resp.text
+
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_hybrid_stream_has_tokens(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.get("/api/summarize/stream", params={
+            "url": "https://example.com/article",
+            "mode": "hybrid",
+            "persona": "executive",
+        })
+        assert "event: meta" in resp.text
+        assert "event: token" in resp.text
+        assert "event: done" in resp.text
+
+    def test_missing_url_returns_422(self, client):
+        resp = client.get("/api/summarize/stream")
+        # FastAPI returns 422 for missing required query params
+        assert resp.status_code == 422
+
+    def test_invalid_persona_returns_400(self, client):
+        resp = client.get("/api/summarize/stream", params={
+            "url": "https://example.com/article",
+            "persona": "nonexistent",
+        })
+        assert resp.status_code == 400
+        assert "Unknown persona" in resp.json()["detail"]
+
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_stream_done_contains_summary(self, mock_fetch, mock_extract, client):
+        import json as json_mod
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.get("/api/summarize/stream", params={
+            "url": "https://example.com/article",
+            "mode": "extractive",
+        })
+        # parse the done event data
+        for line in resp.text.strip().split("\n"):
+            if line.startswith("data: "):
+                data = json_mod.loads(line[6:])
+                assert "summary" in data
+                assert len(data["summary"]) > 0
+                break

@@ -93,3 +93,26 @@ class TestCreateAbstractorFactory:
         with patch.dict("os.environ", {"USE_MOCK_LLM": "1"}):
             ab = create_abstractor()
             assert isinstance(ab, MockAbstractor)
+
+
+class TestMockAbstractorStream:
+    def test_generate_stream_returns_iterator(self, mock_abstractor):
+        tokens = list(mock_abstractor.generate_stream("sys", "- Hello world.", delay=0))
+        assert len(tokens) > 0
+
+    def test_joined_tokens_match_generate(self, mock_abstractor):
+        prompt = "- First sentence.\n- Second sentence."
+        full = mock_abstractor.generate("sys", prompt)
+        tokens = list(mock_abstractor.generate_stream("sys", prompt, delay=0))
+        joined = "".join(tokens).strip()
+        assert joined == full
+
+    def test_each_token_ends_with_space(self, mock_abstractor):
+        tokens = list(mock_abstractor.generate_stream("sys", "- Content here.", delay=0))
+        for token in tokens:
+            assert token.endswith(" ")
+
+    def test_empty_prompt_streams(self, mock_abstractor):
+        tokens = list(mock_abstractor.generate_stream("sys", "", delay=0))
+        joined = "".join(tokens).strip()
+        assert "[Mock Summary]" in joined
