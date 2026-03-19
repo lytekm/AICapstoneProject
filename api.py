@@ -8,12 +8,14 @@ from __future__ import annotations
 
 import os
 import urllib.request
+from collections.abc import Iterator
 from typing import Any
 
 import feedparser
 import trafilatura
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.personas import PERSONAS
@@ -180,3 +182,52 @@ def summarize(data: dict[str, Any]) -> dict[str, Any]:
         response["flagged_entities"] = result.flagged_entities
 
     return response
+
+
+@app.get("/api/summarize/stream")
+def summarize_stream(
+    url: str = Query(..., description="Article URL to summarize"),
+    k: int = Query(DEFAULT_K, ge=1, le=20),
+    mode: str = Query("hybrid", description="extractive | abstractive | hybrid"),
+    persona: str = Query("default"),
+    length: str = Query("standard", description="brief | standard | detailed"),
+) -> StreamingResponse:
+    """Stream a summary via Server-Sent Events (SSE).
+
+    Uses GET so the browser's native EventSource API can connect directly.
+    Tokens arrive as `event: token` messages; the final result comes as
+    `event: done` with confidence and flagged entities (for hybrid mode).
+    """
+    url = url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing 'url' query parameter.")
+
+    mode = mode.strip().lower()
+    persona = persona.strip().lower()
+    length = length.strip().lower()
+
+    # validate persona before we start streaming
+    if persona not in PERSONAS:
+        valid = ", ".join(sorted(PERSONAS.keys()))
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown persona '{persona}'. Valid options: {valid}",
+        )
+
+    # download and extract article text up front
+    html = _fetch_url(url)
+    text = _extract_main_text(html)
+
+    def _event_generator() -> Iterator[str]:
+        yield from pipeline.run_stream(
+            text=text, mode=mode, persona=persona, length=length, k=k, delay=0.0
+        )
+
+    return StreamingResponse(
+        _event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
