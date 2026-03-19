@@ -1,4 +1,4 @@
-.PHONY: test lint typecheck dev docker-build docker-run clean
+.PHONY: test lint typecheck dev docker-build docker-run clean eval
 
 test:
 	python -m pytest tests/ --cov=src --cov-report=term-missing -v
@@ -18,6 +18,9 @@ docker-build:
 
 docker-run:
 	docker compose up -d
+
+eval:
+	python -m eval.run_eval
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
