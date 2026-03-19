@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import re
+import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 
@@ -31,6 +33,20 @@ class AbstractorBase(ABC):
         max_tokens: int = 512,
     ) -> str:
         """Generate an abstractive summary from the given prompts."""
+
+    def generate_stream(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 512,
+        delay: float = 0.02,
+    ) -> Iterator[str]:
+        """Yield summary tokens one at a time. Default impl splits generate() output."""
+        text = self.generate(system_prompt, user_prompt, max_tokens)
+        for word in text.split():
+            if delay > 0:
+                time.sleep(delay)
+            yield word + " "
 
 
 class MockAbstractor(AbstractorBase):
@@ -88,6 +104,29 @@ class Abstractor(AbstractorBase):
         )
         choice = response.choices[0]
         return (choice.message.content or "").strip()
+
+    def generate_stream(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        max_tokens: int = 512,
+        delay: float = 0.0,
+    ) -> Iterator[str]:
+        """Stream tokens from the real LLM via the OpenAI SDK."""
+        stream = self.client.chat.completions.create(
+            model=self.config.model,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=self.config.temperature,
+            max_tokens=max_tokens,
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta
+            if delta.content:
+                yield delta.content
 
 
 def create_abstractor(use_mock: bool | None = None) -> AbstractorBase:
