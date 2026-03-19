@@ -10,3 +10,5 @@ evaluate
 pyarrow
 fastapi
 uvicorn[standard]
+openai
+spacy

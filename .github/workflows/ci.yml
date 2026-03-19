@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, rouge-one]
   pull_request:
     branches: [main]
 
@@ -29,4 +29,5 @@ jobs:
       - run: pip install -r requirements.txt
       - run: pip install pytest pytest-cov httpx ruff mypy
       - run: python -c "import nltk; nltk.download('punkt_tab', quiet=True)"
+      - run: python -m spacy download en_core_web_sm
       - run: python -m pytest tests/ --cov=src --cov-report=term-missing --cov-fail-under=70 -v
