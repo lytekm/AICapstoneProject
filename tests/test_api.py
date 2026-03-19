@@ -98,3 +98,118 @@ class TestSummarizeEndpoint:
         mock_fetch.side_effect = HTTPException(status_code=400, detail="Could not download")
         resp = client.post("/api/summarize", json={"url": "https://bad-url.example.com"})
         assert resp.status_code == 400
+
+
+MOCK_ARTICLE_TEXT = (
+    "The Bank of Canada held its key interest rate steady at 4.5 percent. "
+    "Governor Tiff Macklem said the economy is evolving broadly in line with projections. "
+    "Inflation has come down significantly from its peak last summer. "
+    "However, core inflation measures have not shown sustained decline. "
+    "The central bank remains prepared to raise rates further if needed. "
+    "Financial markets reacted positively to the announcement."
+)
+
+
+class TestPersonasEndpoint:
+    def test_returns_persona_list(self, client):
+        resp = client.get("/api/personas")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "personas" in data
+        assert "technical" in data["personas"]
+        assert "casual" in data["personas"]
+        assert "executive" in data["personas"]
+        assert "academic" in data["personas"]
+
+
+class TestSummarizeWithMode:
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_extractive_mode(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "mode": "extractive",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["mode"] == "extractive"
+        assert data["persona"] == "default"
+
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_hybrid_mode(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "mode": "hybrid",
+            "persona": "executive",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["mode"] == "hybrid"
+        assert data["persona"] == "executive"
+        assert "confidence" in data
+
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_abstractive_mode(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "mode": "abstractive",
+            "persona": "casual",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["mode"] == "abstractive"
+        assert "confidence" in data
+
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_backward_compat_no_mode(self, mock_fetch, mock_extract, client):
+        """Old-style request without mode/persona still works."""
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "k": 3,
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "summary" in data
+        assert data["mode"] == "extractive"
+
+
+class TestSummarizeWithPersona:
+    def test_invalid_persona_returns_400(self, client):
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "persona": "nonexistent",
+        })
+        assert resp.status_code == 400
+        assert "Unknown persona" in resp.json()["detail"]
+
+
+class TestSummarizeResponseFormat:
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_response_includes_metadata(self, mock_fetch, mock_extract, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "mode": "hybrid",
+            "persona": "technical",
+            "length": "brief",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "summary" in data
+        assert "mode" in data
+        assert "persona" in data
+        assert "confidence" in data
+        assert "flagged_entities" in data

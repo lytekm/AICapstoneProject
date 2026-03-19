@@ -1,6 +1,9 @@
 import pytest
 
+from src.abstractor import MockAbstractor
+from src.personas import DEFAULT
 from src.summarizer_model import SummarizerConfig, TextRankMMRSummarizer
+from src.verifier import NERVerifier
 
 SAMPLE_ARTICLE = (
     "The Bank of Canada held its key interest rate steady at 4.5 percent on Wednesday. "
@@ -38,3 +41,32 @@ def sample_article():
 @pytest.fixture
 def sample_article_short():
     return SAMPLE_ARTICLE_SHORT
+
+
+SAMPLE_SOURCE_WITH_ENTITIES = (
+    "Prime Minister Justin Trudeau announced new climate policies in Ottawa on Monday. "
+    "The Bank of Canada reported inflation at 3.2 percent for the quarter. "
+    "Minister Chrystia Freeland presented the fiscal update in Parliament. "
+    "Toronto and Vancouver housing markets showed continued price growth. "
+    "The TSX composite index closed at 21,500 points on Friday."
+)
+
+
+@pytest.fixture
+def sample_source_with_entities():
+    return SAMPLE_SOURCE_WITH_ENTITIES
+
+
+@pytest.fixture
+def mock_abstractor():
+    return MockAbstractor()
+
+
+@pytest.fixture
+def verifier():
+    return NERVerifier()
+
+
+@pytest.fixture
+def default_persona():
+    return DEFAULT
