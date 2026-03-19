@@ -7,7 +7,6 @@
 
   <style>
     :root{
-      /* Dark Purple + Burgundy Theme */
       --bg0:#0b0612;
       --bg1:#12081f;
       --panel:#160b25;
@@ -42,65 +41,62 @@
 
     .wrap{ max-width:1140px; margin:0 auto; }
 
-header{
-  position: relative;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:14px;
-  padding:16px 18px;
-  border-radius:26px;
+    header{
+      position: relative;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:14px;
+      padding:16px 18px;
+      border-radius:26px;
 
-  /* Glass */
-  background: rgba(255,255,255,.06);
-  border: 1px solid rgba(255,255,255,.12);
-  box-shadow:
-    0 18px 55px rgba(0,0,0,.50),
-    inset 0 1px 0 rgba(255,255,255,.10);
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow:
+        0 18px 55px rgba(0,0,0,.50),
+        inset 0 1px 0 rgba(255,255,255,.10);
 
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
 
-  overflow:hidden;
-  margin-bottom:14px;
-}
+      overflow:hidden;
+      margin-bottom:14px;
+    }
 
-/* Animated gradient glow behind the header */
-header::before{
-  content:"";
-  position:absolute;
-  inset:-2px;
-  background: conic-gradient(
-    from 180deg,
-    rgba(124,58,237,.55),
-    rgba(190,18,60,.48),
-    rgba(91,33,182,.50),
-    rgba(124,58,237,.55)
-  );
-  filter: blur(18px);
-  opacity:.55;
-  animation: glowSpin 10s linear infinite;
-  z-index:0;
-}
+    /* animated gradient glow behind the header */
+    header::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background: conic-gradient(
+        from 180deg,
+        rgba(124,58,237,.55),
+        rgba(190,18,60,.48),
+        rgba(91,33,182,.50),
+        rgba(124,58,237,.55)
+      );
+      filter: blur(18px);
+      opacity:.55;
+      animation: glowSpin 10s linear infinite;
+      z-index:0;
+    }
 
-/* Subtle highlight layer */
-header::after{
-  content:"";
-  position:absolute;
-  inset:0;
-  background: radial-gradient(900px 220px at 20% 0%, rgba(255,255,255,.10), transparent 60%);
-  z-index:0;
-}
+    header::after{
+      content:"";
+      position:absolute;
+      inset:0;
+      background: radial-gradient(900px 220px at 20% 0%, rgba(255,255,255,.10), transparent 60%);
+      z-index:0;
+    }
 
-/* Make header content sit above glow layers */
-header > *{
-  position:relative;
-  z-index:1;
-}
+    header > *{
+      position:relative;
+      z-index:1;
+    }
 
-@keyframes glowSpin{
-  to{ transform: rotate(360deg); }
-}
+    @keyframes glowSpin{
+      to{ transform: rotate(360deg); }
+    }
 
     .brand{
       display:flex;
@@ -115,18 +111,7 @@ header > *{
       gap:8px;
     }
 
-    .logoBox{
-      width:46px; height:46px;
-      border-radius:16px;
-      border:1px solid var(--border);
-      background: rgba(255,255,255,.06);
-      display:grid;
-      place-items:center;
-      overflow:hidden;
-    }
-    .logoBox img{ width:100%; height:100%; object-fit:cover; filter: contrast(1.1) brightness(1.02); }
-
-        .miniLogo{
+    .miniLogo{
       width:48px; height:48px;
       border-radius:18px;
       border:1px solid rgba(255,255,255,.14);
@@ -140,18 +125,18 @@ header > *{
         inset 0 1px 0 rgba(255,255,255,.14);
     }
     .miniLogo svg{ width:26px; height:26px; }
-      h1{
-        margin:0;
-        font-size:18px;
-        letter-spacing:.2px;
-        line-height:1.2;
-      }
-      .sub{
-        margin:4px 0 0;
-        color:rgba(243,244,255,.78);
-        font-size:12.5px;
-        line-height:1.35;
-      }
+    h1{
+      margin:0;
+      font-size:18px;
+      letter-spacing:.2px;
+      line-height:1.2;
+    }
+    .sub{
+      margin:4px 0 0;
+      color:rgba(243,244,255,.78);
+      font-size:12.5px;
+      line-height:1.35;
+    }
 
     .badge{
       font-size:12px;
@@ -231,7 +216,7 @@ header > *{
       margin-bottom:6px;
     }
 
-    select, input{
+    select, input[type="number"]{
       width:100%;
       background: rgba(0,0,0,.20);
       border:1px solid var(--border);
@@ -334,7 +319,7 @@ header > *{
       line-height:1.45;
     }
 
-    /* Loading spinner */
+    /* loading spinner */
     .spinner{
       width:16px; height:16px;
       border-radius:50%;
@@ -346,7 +331,70 @@ header > *{
     }
     @keyframes spin{ to{ transform:rotate(360deg); } }
 
-    /* Trend box */
+    /* controls row for pipeline settings */
+    .controlsRow{
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      margin-top:12px;
+    }
+    .controlsRow > div{
+      flex:1;
+      min-width:150px;
+    }
+
+    /* confidence badge */
+    .confidenceBadge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size:12px;
+      font-weight:700;
+      padding:5px 10px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      margin-top:8px;
+    }
+    .confidenceBadge.high{
+      background: rgba(34,197,94,.15);
+      border-color: rgba(34,197,94,.35);
+      color:#86efac;
+    }
+    .confidenceBadge.mid{
+      background: rgba(245,158,11,.15);
+      border-color: rgba(245,158,11,.35);
+      color:#fcd34d;
+    }
+    .confidenceBadge.low{
+      background: rgba(239,68,68,.15);
+      border-color: rgba(239,68,68,.35);
+      color:#fca5a5;
+    }
+
+    /* flagged entities */
+    .flaggedWrap{
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      margin-top:8px;
+    }
+    .flagChip{
+      font-size:11px;
+      padding:4px 8px;
+      border-radius:999px;
+      background: rgba(239,68,68,.12);
+      border:1px solid rgba(239,68,68,.30);
+      color:#fca5a5;
+    }
+
+    /* latency display */
+    .latency{
+      font-size:11px;
+      color:var(--muted);
+      margin-top:6px;
+    }
+
+    /* trend boxes */
     .trendGrid{
       display:grid;
       grid-template-columns: 1fr 1fr;
@@ -391,7 +439,6 @@ header > *{
     <header>
       <div class="brand">
         <div class="logos">
-         
           <div class="logos">
             <div class="miniLogo" title="AI">
               <svg viewBox="0 0 24 24" fill="none">
@@ -403,11 +450,11 @@ header > *{
                       stroke="rgba(255,255,255,.92)" stroke-width="1.6" stroke-linecap="round"/>
               </svg>
             </div>
-          </div>  
+          </div>
 
         <div>
           <h1>AI News Summarizer <span class="pill">CBC</span></h1>
-          <p class="sub">Choose 1 or 2 articles, generate summaries, and view common topics (Trend feature).</p>
+          <p class="sub">Fetch articles, pick a persona, and generate adaptive summaries with streaming.</p>
         </div>
       </div>
 
@@ -431,35 +478,66 @@ header > *{
             <button class="primary" id="btnFetch">Fetch Articles</button>
             <button class="accent" id="btnSummarize" disabled>Summarize</button>
             <button id="btnClear">Clear</button>
-            <a class="badge" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">Open API Docs →</a>
+            <a class="badge" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">Open API Docs</a>
           </div>
 
           <div class="row">
             <div style="flex:1; min-width:260px;">
-              <label>Mode</label>
+              <label>Comparison Mode</label>
               <div class="row" style="gap:14px; margin-top:2px;">
                 <label style="display:flex; gap:8px; align-items:center; margin:0; color:var(--text); font-size:13px;">
-                  <input type="radio" name="mode" value="one" checked />
+                  <input type="radio" name="cmpMode" value="one" checked />
                   Summarize 1 article
                 </label>
-
                 <label style="display:flex; gap:8px; align-items:center; margin:0; color:var(--text); font-size:13px;">
-                  <input type="radio" name="mode" value="two" />
+                  <input type="radio" name="cmpMode" value="two" />
                   Compare 2 articles
                 </label>
               </div>
             </div>
 
             <div style="flex:1; min-width:220px;">
-              <label for="k">Summary length (k sentences)</label>
+              <label for="k">Extractive sentences (k)</label>
               <input id="k" type="number" value="5" min="1" max="10" />
             </div>
+          </div>
 
-            <div style="flex:1; min-width:260px;">
-              <div class="hint" style="margin-top:18px;">
-                Tip: try <span class="kbd">k=3</span> short, <span class="kbd">k=7</span> more detail.
-              </div>
+          <!-- pipeline controls: mode, persona, length -->
+          <div class="controlsRow">
+            <div>
+              <label for="pipelineMode">Pipeline Mode</label>
+              <select id="pipelineMode">
+                <option value="extractive">Extractive</option>
+                <option value="abstractive">Abstractive</option>
+                <option value="hybrid" selected>Hybrid</option>
+              </select>
             </div>
+
+            <div>
+              <label for="personaSelect">Persona</label>
+              <select id="personaSelect">
+                <option value="default">Default (Casual)</option>
+                <option value="technical">Technical</option>
+                <option value="casual">Casual</option>
+                <option value="executive">Executive</option>
+                <option value="academic">Academic</option>
+              </select>
+            </div>
+
+            <div>
+              <label for="lengthSelect">Length</label>
+              <select id="lengthSelect">
+                <option value="brief">Brief</option>
+                <option value="standard" selected>Standard</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="hint">
+            Extractive returns raw top-k sentences. Abstractive and Hybrid use an LLM
+            (with persona prompting) to rewrite extracted content. Hybrid also runs
+            NER-based factual verification.
           </div>
         </div>
       </section>
@@ -477,32 +555,34 @@ header > *{
             <div>
               <label for="articleA">Article A</label>
               <select id="articleA">
-                <option value="">Click “Fetch Articles” first</option>
+                <option value="">Click "Fetch Articles" first</option>
               </select>
 
               <div class="meta">
-                <div><a id="openA" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article A →</a></div>
-                <div id="timeA">—</div>
+                <div><a id="openA" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article A</a></div>
+                <div id="timeA"></div>
               </div>
 
               <h3 style="margin:12px 0 8px; font-size:13px;">Summary A</h3>
               <div class="summary" id="summaryA">No summary yet.</div>
+              <div id="resultMetaA"></div>
             </div>
 
             <!-- Column B -->
             <div id="colB">
               <label for="articleB">Article B</label>
               <select id="articleB">
-                <option value="">Click “Fetch Articles” first</option>
+                <option value="">Click "Fetch Articles" first</option>
               </select>
 
               <div class="meta">
-                <div><a id="openB" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article B →</a></div>
-                <div id="timeB">—</div>
+                <div><a id="openB" href="#" target="_blank" rel="noreferrer" style="display:none;">Open Article B</a></div>
+                <div id="timeB"></div>
               </div>
 
               <h3 style="margin:12px 0 8px; font-size:13px;">Summary B</h3>
               <div class="summary" id="summaryB">No summary yet.</div>
+              <div id="resultMetaB"></div>
             </div>
           </div>
 
@@ -519,7 +599,7 @@ header > *{
             <div class="trendCard">
               <h4 class="trendTitle">Top Keywords (Article A)</h4>
               <div class="chipWrap" id="keywordsA">
-                <span class="chip">—</span>
+                <span class="chip"></span>
               </div>
               <div class="hint">Simple keyword extraction (client-side) from summary text.</div>
             </div>
@@ -534,6 +614,7 @@ header > *{
   <script>
     const API = "http://127.0.0.1:8000";
 
+    // dom refs
     const btnFetch = document.getElementById("btnFetch");
     const btnSummarize = document.getElementById("btnSummarize");
     const btnClear = document.getElementById("btnClear");
@@ -543,9 +624,14 @@ header > *{
     const colB = document.getElementById("colB");
 
     const kInput = document.getElementById("k");
+    const pipelineMode = document.getElementById("pipelineMode");
+    const personaSelect = document.getElementById("personaSelect");
+    const lengthSelect = document.getElementById("lengthSelect");
 
     const summaryA = document.getElementById("summaryA");
     const summaryB = document.getElementById("summaryB");
+    const resultMetaA = document.getElementById("resultMetaA");
+    const resultMetaB = document.getElementById("resultMetaB");
 
     const statusText = document.getElementById("statusText");
     const dot = document.getElementById("dot");
@@ -563,6 +649,7 @@ header > *{
     const backendLabel = document.getElementById("backendLabel");
     backendLabel.textContent = API;
 
+    // ---- helpers ----
     function setStatus(type, text){
       statusText.textContent = text;
       dot.classList.remove("busy","err");
@@ -584,12 +671,12 @@ header > *{
       anchor.style.display="inline";
     }
 
-    function getMode(){
-      return document.querySelector('input[name="mode"]:checked').value; // "one" or "two"
+    function getCmpMode(){
+      return document.querySelector('input[name="cmpMode"]:checked').value;
     }
 
-    function applyModeUI(){
-      const mode = getMode();
+    function applyCmpModeUI(){
+      const mode = getCmpMode();
       if(mode === "one"){
         colB.style.display = "none";
         btnSummarize.textContent = "Summarize A";
@@ -606,12 +693,57 @@ header > *{
     }
 
     function updateSummarizeEnabled(){
-      const mode = getMode();
+      const mode = getCmpMode();
       const ready = (mode === "one") ? !!articleA.value : (!!articleA.value && !!articleB.value);
       btnSummarize.disabled = !ready;
     }
 
-    // ---------- Trend / keywords ----------
+    // builds the confidence badge + flagged entities + latency under a summary
+    function renderResultMeta(container, data){
+      container.innerHTML = "";
+      if(!data) return;
+
+      // confidence badge (only for hybrid/abstractive)
+      if(data.confidence !== undefined && data.confidence !== null){
+        const score = data.confidence;
+        const pct = (score * 100).toFixed(1);
+        let cls = "high";
+        if(score < 0.7) cls = "low";
+        else if(score < 0.9) cls = "mid";
+
+        const badge = document.createElement("span");
+        badge.className = "confidenceBadge " + cls;
+        badge.textContent = "Confidence: " + pct + "%";
+        container.appendChild(badge);
+      }
+
+      // flagged entities
+      if(data.flagged_entities && data.flagged_entities.length > 0){
+        const wrap = document.createElement("div");
+        wrap.className = "flaggedWrap";
+        const lbl = document.createElement("span");
+        lbl.style.cssText = "font-size:11px; color:var(--muted); margin-right:4px;";
+        lbl.textContent = "Flagged:";
+        wrap.appendChild(lbl);
+        for(const ent of data.flagged_entities){
+          const chip = document.createElement("span");
+          chip.className = "flagChip";
+          chip.textContent = ent;
+          wrap.appendChild(chip);
+        }
+        container.appendChild(wrap);
+      }
+
+      // latency
+      if(data.latencyMs !== undefined){
+        const lat = document.createElement("div");
+        lat.className = "latency";
+        lat.textContent = "Latency: " + data.latencyMs + "ms";
+        container.appendChild(lat);
+      }
+    }
+
+    // ---- trend / keyword extraction ----
     const STOPWORDS = new Set([
       "a","an","and","are","as","at","be","but","by","for","from","has","have","he","her","his","i",
       "in","into","is","it","its","just","may","more","my","not","of","on","or","our","she","so","than",
@@ -653,7 +785,7 @@ header > *{
       if(!words || words.length === 0){
         const s = document.createElement("span");
         s.className = "chip " + (alt ? "alt" : "");
-        s.textContent = "—";
+        s.textContent = "--";
         container.appendChild(s);
         return;
       }
@@ -667,15 +799,14 @@ header > *{
 
     function resetTrends(){
       renderChips(commonTopics, ["No topics yet"], true);
-      renderChips(keywordsA, ["—"]);
+      renderChips(keywordsA, []);
     }
 
     function updateTrends(){
-      const mode = getMode();
+      const mode = getCmpMode();
       const sumA = summaryA.textContent || "";
       const sumB = summaryB.textContent || "";
 
-      // A keywords always
       renderChips(keywordsA, topKeywords(sumA, 10));
 
       if(mode === "one"){
@@ -685,23 +816,76 @@ header > *{
       }
     }
 
-    // ---------- API ----------
+    // ---- SSE streaming ----
+    // streams a summary via EventSource for abstractive/hybrid modes
+    function streamSummary(url, k, mode, persona, length){
+      return new Promise((resolve, reject) => {
+        const params = new URLSearchParams({
+          url, k, mode, persona, length
+        });
+
+        const evtUrl = API + "/api/summarize/stream?" + params.toString();
+        const source = new EventSource(evtUrl);
+        let fullText = "";
+        let resultData = null;
+
+        source.addEventListener("meta", function(){
+          // metadata event, streaming has started
+        });
+
+        source.addEventListener("token", function(e){
+          const data = JSON.parse(e.data);
+          fullText += data.text;
+          // will be updated in the caller via onToken callback
+          if(streamSummary._onToken) streamSummary._onToken(data.text);
+        });
+
+        source.addEventListener("done", function(e){
+          source.close();
+          resultData = JSON.parse(e.data);
+          resolve(resultData);
+        });
+
+        source.addEventListener("error", function(e){
+          // SSE sends error events on close or actual errors
+          source.close();
+          if(resultData){
+            // already got done, this is just the close event
+            return;
+          }
+          // check if the event has data (our custom error event)
+          if(e.data){
+            try{
+              const errData = JSON.parse(e.data);
+              reject(new Error(errData.detail || "Stream error"));
+            }catch(_){
+              reject(new Error("Stream connection failed"));
+            }
+          }else{
+            reject(new Error("Stream connection failed"));
+          }
+        });
+      });
+    }
+
+    // ---- API calls ----
     async function fetchArticles(){
       setStatus("busy", "Fetching articles...");
       btnFetch.disabled = true;
       btnSummarize.disabled = true;
 
-      // reset
       summaryA.textContent = "No summary yet.";
       summaryB.textContent = "No summary yet.";
-      timeA.textContent = "—";
-      timeB.textContent = "—";
+      timeA.textContent = "";
+      timeB.textContent = "";
+      resultMetaA.innerHTML = "";
+      resultMetaB.innerHTML = "";
       setOpenLink(openA, "");
       setOpenLink(openB, "");
       resetTrends();
 
       try{
-        const res = await fetch(`${API}/api/articles`);
+        const res = await fetch(API + "/api/articles");
         const data = await res.json();
         const articles = Array.isArray(data) ? data : data.articles;
 
@@ -726,12 +910,30 @@ header > *{
         articleA.appendChild(makeOptions());
         articleB.appendChild(makeOptions());
 
-        setStatus("ok", `Loaded ${articles.length} articles`);
-        applyModeUI();
+        // also fetch available personas from the backend
+        try{
+          const pRes = await fetch(API + "/api/personas");
+          const pData = await pRes.json();
+          if(pData.personas && Array.isArray(pData.personas)){
+            personaSelect.innerHTML = "";
+            for(const p of pData.personas){
+              const opt = document.createElement("option");
+              opt.value = p;
+              opt.textContent = p.charAt(0).toUpperCase() + p.slice(1);
+              if(p === "default") opt.textContent = "Default (Casual)";
+              personaSelect.appendChild(opt);
+            }
+          }
+        }catch(e){
+          // personas fetch is optional, keep hardcoded defaults
+        }
+
+        setStatus("ok", "Loaded " + articles.length + " articles");
+        applyCmpModeUI();
       }catch(e){
         setStatus("err", "Failed to fetch articles");
-        articleA.innerHTML = `<option value="">(Error)</option>`;
-        articleB.innerHTML = `<option value="">(Error)</option>`;
+        articleA.innerHTML = '<option value="">(Error)</option>';
+        articleB.innerHTML = '<option value="">(Error)</option>';
         resetTrends();
       }finally{
         btnFetch.disabled = false;
@@ -739,30 +941,79 @@ header > *{
       }
     }
 
-    async function summarizeOne(url, k){
-      const res = await fetch(`${API}/api/summarize`, {
+    // POST-based summarize (used for extractive, or as fallback)
+    async function summarizePost(url, k, mode, persona, length){
+      const res = await fetch(API + "/api/summarize", {
         method: "POST",
         headers: {"Content-Type":"application/json"},
-        body: JSON.stringify({ url, k })
+        body: JSON.stringify({ url, k, mode, persona, length })
       });
       const data = await res.json();
       if(!res.ok){
         throw new Error(data.detail || "Unknown error");
       }
-      return data.summary || "(Empty summary)";
+      return data;
     }
 
-    function setLoading(el, msg="Working..."){
-      el.innerHTML = `<span class="spinner"></span> <span style="margin-left:8px;">${msg}</span>`;
+    function setLoading(el, msg){
+      el.innerHTML = '<span class="spinner"></span> <span style="margin-left:8px;">' + (msg || "Working...") + '</span>';
+    }
+
+    // summarize a single article, returns { summary, confidence, flagged_entities, latencyMs }
+    async function summarizeArticle(url, summaryEl, metaEl){
+      const k = parseInt(kInput.value || "5", 10);
+      const mode = pipelineMode.value;
+      const persona = personaSelect.value;
+      const length = lengthSelect.value;
+
+      const startTime = performance.now();
+
+      // use SSE streaming for abstractive/hybrid so tokens appear live
+      if(mode !== "extractive"){
+        summaryEl.textContent = "";
+        streamSummary._onToken = function(token){
+          summaryEl.textContent += token;
+        };
+        try{
+          const result = await streamSummary(url, k, mode, persona, length);
+          const elapsed = Math.round(performance.now() - startTime);
+          // replace content with the final clean summary from the done event
+          summaryEl.textContent = result.summary || summaryEl.textContent;
+          const metaData = {
+            confidence: result.confidence,
+            flagged_entities: result.flagged_entities,
+            latencyMs: elapsed,
+          };
+          renderResultMeta(metaEl, metaData);
+          return result.summary;
+        }catch(err){
+          // fall back to POST if streaming fails
+          const result = await summarizePost(url, k, mode, persona, length);
+          const elapsed = Math.round(performance.now() - startTime);
+          summaryEl.textContent = result.summary || "(Empty summary)";
+          renderResultMeta(metaEl, {
+            confidence: result.confidence,
+            flagged_entities: result.flagged_entities,
+            latencyMs: elapsed,
+          });
+          return result.summary;
+        }
+      }
+
+      // extractive: plain POST, no streaming needed
+      const result = await summarizePost(url, k, mode, persona, length);
+      const elapsed = Math.round(performance.now() - startTime);
+      summaryEl.textContent = result.summary || "(Empty summary)";
+      renderResultMeta(metaEl, { latencyMs: elapsed });
+      return result.summary;
     }
 
     async function summarize(){
-      const mode = getMode();
+      const cmpMode = getCmpMode();
       const urlA = articleA.value;
       const urlB = articleB.value;
-      const k = parseInt(kInput.value || "5", 10);
 
-      if(!urlA || (mode === "two" && !urlB)){
+      if(!urlA || (cmpMode === "two" && !urlB)){
         alert("Please select the required article(s).");
         return;
       }
@@ -770,31 +1021,35 @@ header > *{
       setStatus("busy", "Summarizing...");
       btnSummarize.disabled = true;
 
-      // loading UI
+      // loading state
       setLoading(summaryA, "Summarizing Article A...");
-      timeA.textContent = "—";
-      if(mode === "two"){
+      resultMetaA.innerHTML = "";
+      timeA.textContent = "";
+      if(cmpMode === "two"){
         setLoading(summaryB, "Summarizing Article B...");
-        timeB.textContent = "—";
+        resultMetaB.innerHTML = "";
+        timeB.textContent = "";
       }else{
         summaryB.textContent = "No summary yet.";
-        timeB.textContent = "—";
+        resultMetaB.innerHTML = "";
+        timeB.textContent = "";
       }
 
       try{
-        if(mode === "one"){
-          const sumA = await summarizeOne(urlA, k);
-          summaryA.textContent = sumA;
-          timeA.textContent = `Generated: ${nowTime()} • k=${k}`;
+        if(cmpMode === "one"){
+          await summarizeArticle(urlA, summaryA, resultMetaA);
+          const k = parseInt(kInput.value || "5", 10);
+          timeA.textContent = "Generated: " + nowTime() + " | k=" + k + " | " + pipelineMode.value;
         }else{
-          const [sumA, sumB] = await Promise.all([
-            summarizeOne(urlA, k),
-            summarizeOne(urlB, k),
+          // run both in parallel
+          await Promise.all([
+            summarizeArticle(urlA, summaryA, resultMetaA),
+            summarizeArticle(urlB, summaryB, resultMetaB),
           ]);
-          summaryA.textContent = sumA;
-          summaryB.textContent = sumB;
-          timeA.textContent = `Generated: ${nowTime()} • k=${k}`;
-          timeB.textContent = `Generated: ${nowTime()} • k=${k}`;
+          const k = parseInt(kInput.value || "5", 10);
+          const ts = nowTime();
+          timeA.textContent = "Generated: " + ts + " | k=" + k + " | " + pipelineMode.value;
+          timeB.textContent = "Generated: " + ts + " | k=" + k + " | " + pipelineMode.value;
         }
 
         updateTrends();
@@ -802,8 +1057,8 @@ header > *{
       }catch(err){
         const msg = err?.message || "Unknown error";
         setStatus("err", "Summary failed");
-        summaryA.textContent = `Error: ${msg}`;
-        if(mode === "two") summaryB.textContent = `Error: ${msg}`;
+        summaryA.textContent = "Error: " + msg;
+        if(cmpMode === "two") summaryB.textContent = "Error: " + msg;
         resetTrends();
       }finally{
         updateSummarizeEnabled();
@@ -815,35 +1070,37 @@ header > *{
       articleB.value = "";
       summaryA.textContent = "No summary yet.";
       summaryB.textContent = "No summary yet.";
-      timeA.textContent = "—";
-      timeB.textContent = "—";
+      resultMetaA.innerHTML = "";
+      resultMetaB.innerHTML = "";
+      timeA.textContent = "";
+      timeB.textContent = "";
       setOpenLink(openA, "");
       setOpenLink(openB, "");
       setStatus("ok", "Ready");
-      applyModeUI();
+      applyCmpModeUI();
       resetTrends();
     }
 
-    // events
+    // ---- event listeners ----
     btnFetch.addEventListener("click", fetchArticles);
     btnSummarize.addEventListener("click", summarize);
     btnClear.addEventListener("click", clearAll);
 
-    articleA.addEventListener("change", () => {
+    articleA.addEventListener("change", function(){
       setOpenLink(openA, articleA.value);
       updateSummarizeEnabled();
     });
-    articleB.addEventListener("change", () => {
+    articleB.addEventListener("change", function(){
       setOpenLink(openB, articleB.value);
       updateSummarizeEnabled();
     });
 
-    document.querySelectorAll('input[name="mode"]').forEach(r => {
-      r.addEventListener("change", applyModeUI);
+    document.querySelectorAll('input[name="cmpMode"]').forEach(function(r){
+      r.addEventListener("change", applyCmpModeUI);
     });
 
     // init
-    applyModeUI();
+    applyCmpModeUI();
     resetTrends();
   </script>
 </body>
