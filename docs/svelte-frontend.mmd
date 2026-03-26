@@ -1,0 +1,87 @@
+%% Phase 5 Svelte Frontend Architecture
+%% Shows component tree, API endpoint mapping, and data flow
+
+flowchart TB
+    subgraph SvelteApp["Svelte App (SvelteKit)"]
+        direction TB
+
+        subgraph Layout["__layout.svelte"]
+            NAV[Navbar\nlogo + user selector]
+            TOAST[Toast notifications]
+        end
+
+        subgraph Pages["Routes"]
+            HOME["/\nDashboard"]
+            SUMMARIZE["/summarize\nSummary workspace"]
+            PROFILE["/profile\nUser preferences"]
+            COMPARE["/compare\nSide-by-side eval"]
+        end
+
+        subgraph Components["Shared Components"]
+            ARTLIST[ArticleList\nranked cards with score badges]
+            ARTCARD[ArticleCard\ntitle, link, match_reasons chips]
+            SUMFORM[SummarizeForm\nmode, persona, length, k selectors]
+            SUMVIEW[SummaryView\nrendered summary + metadata]
+            STREAM[StreamingText\nSSE token renderer]
+            CONFBADGE[ConfidenceBadge\ncolor-coded 0.0-1.0]
+            ENTCHIPS[FlaggedEntityChips\nclickable entity warnings]
+            FEEDBACK[FeedbackButtons\nlike / dislike per summary]
+            PERSFORM[PreferencesForm\ntopics, keywords, persona, length]
+        end
+
+        subgraph Stores["Svelte Stores (reactive state)"]
+            USERSTORE[userStore\ncurrent user_id + profile]
+            ARTSTORE[articlesStore\nfetched + ranked articles]
+            SUMSTORE[summaryStore\ncurrent result + stream state]
+        end
+    end
+
+    subgraph API["FastAPI Backend"]
+        H[GET /api/health]
+        A[GET /api/articles]
+        AP[GET /api/articles/personalized]
+        P[GET /api/personas]
+        S[POST /api/summarize]
+        SS[GET /api/summarize/stream]
+        UP_W[POST /api/user/preferences]
+        UP_R[GET /api/user/preferences/:id]
+        FB[POST /api/user/feedback]
+    end
+
+    %% page -> component relationships
+    HOME --> ARTLIST
+    HOME --> FEEDBACK
+    SUMMARIZE --> SUMFORM
+    SUMMARIZE --> SUMVIEW
+    SUMMARIZE --> STREAM
+    SUMMARIZE --> CONFBADGE
+    SUMMARIZE --> ENTCHIPS
+    SUMMARIZE --> FEEDBACK
+    PROFILE --> PERSFORM
+    COMPARE --> SUMVIEW
+
+    ARTLIST --> ARTCARD
+
+    %% store -> API bindings
+    USERSTORE -- "on login / switch" --> UP_R
+    PERSFORM -- "save prefs" --> UP_W
+    ARTSTORE -- "no user" --> A
+    ARTSTORE -- "has user" --> AP
+    SUMFORM -- "non-streaming" --> S
+    SUMFORM -- "streaming toggle" --> SS
+    FEEDBACK -- "like / dislike" --> FB
+    SUMSTORE -- "fetch personas" --> P
+
+    %% data flow back
+    UP_R -. "profile JSON" .-> USERSTORE
+    AP -. "ranked articles" .-> ARTSTORE
+    S -. "PipelineResult" .-> SUMSTORE
+    SS -. "SSE events" .-> STREAM
+    FB -. "updated weights" .-> USERSTORE
+
+    %% styling
+    style SvelteApp fill:#1a1a2e,stroke:#7c3aed,color:#f3f4ff
+    style API fill:#0d1117,stroke:#58a6ff,color:#f3f4ff
+    style Stores fill:#1e1233,stroke:#be123c,color:#f3f4ff
+    style Components fill:#160b25,stroke:#7c3aed,color:#f3f4ff
+    style Pages fill:#12081f,stroke:#5b21b6,color:#f3f4ff

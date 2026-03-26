@@ -163,7 +163,7 @@ flowchart TB
   - [x] BERTScore evaluator alongside ROUGE (opt-in via `--bertscore`)
   - [x] Baseline evaluation results committed to `eval/results/`
   - [x] Inline comments pass across all modules
-  - [ ] Validate real LLM path with vLLM on RTX 3090 (deferred -- cluster unreachable from dev network)
+  - [x] Validate real LLM path with vLLM on RTX 3090 (Mistral-7B-Instruct-v0.3, all modes + personas verified)
   - Algorithm upgrades (sentence embeddings, position bias) deferred pending team discussion
   - 223 tests, 91% coverage
   - Tag: `phase-4-complete`
@@ -451,10 +451,12 @@ We normalize with lowercase + strip, which helps, but a more robust approach wou
 
 ### vLLM network reachability
 
-The Prometheus cluster (Talos k8s, RTX 3090, vLLM serving Mistral-7B at `192.168.2.205:8000/v1`) is on a home lab network. During development:
-- The cluster is unreachable from campus/public WiFi without Tailscale
-- vLLM cold starts take ~45s to load the model into GPU memory
+The Prometheus cluster (Talos k8s, RTX 3090, vLLM serving Mistral-7B-Instruct-v0.3 at `192.168.2.205:8000/v1`) is on a home lab network. During development:
+- The cluster is only reachable from the home LAN (ICMP blocked by Talos, but HTTP works)
+- Campus/public WiFi requires Tailscale to reach the endpoint
+- vLLM cold starts take ~45s to load the 7B model into GPU memory
 - The API defaults to mock mode (`USE_MOCK_LLM=1`) so the entire codebase works without any LLM connectivity
+- **Validated**: all 3 pipeline modes (extractive, abstractive, hybrid) and all 4 personas tested against live vLLM. NER verification catches real hallucinations (e.g., Mistral invented "June 2019" when the source said "last June")
 
 Phase 5 will add Flux manifests that deploy the API alongside vLLM in the same cluster, eliminating the network hop issue entirely.
 
