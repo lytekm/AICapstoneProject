@@ -1,87 +1,189 @@
 %% Phase 5 Svelte Frontend Architecture
-%% Shows component tree, API endpoint mapping, and data flow
+%% Component hierarchy, API endpoint mapping, data flow, and reactive store bindings.
+%% Render with: https://mermaid.live or any Mermaid-compatible viewer.
 
 flowchart TB
-    subgraph SvelteApp["Svelte App (SvelteKit)"]
+    subgraph SvelteApp["SvelteKit Application"]
         direction TB
 
-        subgraph Layout["__layout.svelte"]
-            NAV[Navbar\nlogo + user selector]
-            TOAST[Toast notifications]
+        subgraph Layout["+layout.svelte -- persistent shell"]
+            NAV["Navbar
+            logo, nav links, user ID input
+            persists user_id to localStorage"]
+            TOAST["Toast
+            success / error / info notifications
+            auto-dismiss after 4 seconds"]
         end
 
-        subgraph Pages["Routes"]
-            HOME["/\nDashboard"]
-            SUMMARIZE["/summarize\nSummary workspace"]
-            PROFILE["/profile\nUser preferences"]
-            COMPARE["/compare\nSide-by-side eval"]
+        subgraph Pages["Page Routes"]
+            HOME["/ Dashboard
+            two-column: article feed + quick summarize
+            anonymous = raw feed, logged in = ranked feed"]
+            SUMMARIZE["/summarize Workspace
+            full article picker + controls + result panel
+            clears state on article switch"]
+            PROFILE["/profile Preferences
+            topic/keyword editor, persona/length defaults
+            shows feedback weight breakdown"]
+            COMPARE["/compare Side-by-Side
+            same article, two different configs
+            concurrent POST requests"]
         end
 
         subgraph Components["Shared Components"]
-            ARTLIST[ArticleList\nranked cards with score badges]
-            ARTCARD[ArticleCard\ntitle, link, match_reasons chips]
-            SUMFORM[SummarizeForm\nmode, persona, length, k selectors]
-            SUMVIEW[SummaryView\nrendered summary + metadata]
-            STREAM[StreamingText\nSSE token renderer]
-            CONFBADGE[ConfidenceBadge\ncolor-coded 0.0-1.0]
-            ENTCHIPS[FlaggedEntityChips\nclickable entity warnings]
-            FEEDBACK[FeedbackButtons\nlike / dislike per summary]
-            PERSFORM[PreferencesForm\ntopics, keywords, persona, length]
+            ARTLIST["ArticleList
+            scrollable feed, skeleton loaders
+            switches generic/personalized via store"]
+            ARTCARD["ArticleCard
+            title, open-article link, score badge
+            match_reasons rendered as chips
+            emits 'select' event on click"]
+            SUMFORM["SummarizeForm
+            mode/persona/length/k dropdowns
+            streaming toggle checkbox
+            applies profile defaults on login"]
+            SUMVIEW["SummaryView
+            rendered summary text
+            embeds StreamingText + ConfidenceBadge
+            + FlaggedEntityChips + FeedbackButtons"]
+            STREAM["StreamingText
+            binds to summaryText store
+            blinking cursor during SSE stream
+            disappears when 'done' event fires"]
+            CONFBADGE["ConfidenceBadge
+            green >= 0.8, yellow >= 0.5, red below
+            shows 'N/A' for extractive mode"]
+            ENTCHIPS["FlaggedEntityChips
+            NER-flagged entities as warning chips
+            hidden when list is empty"]
+            FEEDBACK["FeedbackButtons
+            thumbs up / thumbs down
+            auto-reloads profile + articles after submit
+            only visible when user is logged in"]
+            PERSFORM["PreferencesForm
+            comma-separated topic/keyword inputs
+            persona + length dropdowns
+            feedback weight display (read-only)"]
         end
 
-        subgraph Stores["Svelte Stores (reactive state)"]
-            USERSTORE[userStore\ncurrent user_id + profile]
-            ARTSTORE[articlesStore\nfetched + ranked articles]
-            SUMSTORE[summaryStore\ncurrent result + stream state]
+        subgraph Stores["Svelte Stores -- reactive state"]
+            USERSTORE["userStore
+            userId: writable string (localStorage-backed)
+            profile: writable UserProfile | null
+            isLoggedIn: derived boolean
+            loadProfile(): fetches from backend"]
+            ARTSTORE["articlesStore
+            articles: writable array
+            loadArticles(): auto-selects
+            generic vs personalized endpoint"]
+            SUMSTORE["summaryStore
+            summaryText: writable string (progressive)
+            summaryResult: writable SummaryResult
+            isStreaming: writable boolean
+            summaryLatency: writable number
+            runSummarize(): single POST
+            runSummarizeStream(): SSE EventSource"]
         end
     end
 
-    subgraph API["FastAPI Backend"]
-        H[GET /api/health]
-        A[GET /api/articles]
-        AP[GET /api/articles/personalized]
-        P[GET /api/personas]
-        S[POST /api/summarize]
-        SS[GET /api/summarize/stream]
-        UP_W[POST /api/user/preferences]
-        UP_R[GET /api/user/preferences/:id]
-        FB[POST /api/user/feedback]
+    subgraph API["FastAPI Backend -- 10 endpoints"]
+        H["GET /api/health
+        returns {status: ok}"]
+        A["GET /api/articles
+        raw RSS feed, top 10"]
+        AP["GET /api/articles/personalized
+        ?user_id= ranked by profile"]
+        P["GET /api/personas
+        list of available persona names"]
+        S["POST /api/summarize
+        JSON body: url, k, mode, persona, length
+        returns: summary, confidence, flagged_entities"]
+        SS["GET /api/summarize/stream
+        query params: url, k, mode, persona, length
+        SSE events: meta -> token* -> done"]
+        UP_W["POST /api/user/preferences
+        create or update user profile
+        validates persona, preserves feedback_weights"]
+        UP_R["GET /api/user/preferences/:id
+        returns full UserProfile JSON"]
+        FB["POST /api/user/feedback
+        like/dislike -> adjusts profile weights
+        asymmetric: +0.1 like, -0.05 dislike"]
     end
 
-    %% page -> component relationships
+    subgraph Backend["Pipeline (Python)"]
+        EXT["TextRank + MMR
+        extractive sentence selection"]
+        ABS["Abstractor
+        Mock or vLLM via OpenAI SDK"]
+        VER["NER Verifier
+        spaCy entity comparison"]
+        PROF["ProfileStore
+        JSON file persistence"]
+        RANK["ArticleRanker
+        topic + keyword + feedback scoring"]
+    end
+
+    %% Layout mounts on every page
+    Layout --> HOME
+    Layout --> SUMMARIZE
+    Layout --> PROFILE
+    Layout --> COMPARE
+
+    %% Page -> Component composition
     HOME --> ARTLIST
-    HOME --> FEEDBACK
+    HOME --> SUMFORM
+    HOME --> SUMVIEW
+    SUMMARIZE --> ARTLIST
     SUMMARIZE --> SUMFORM
     SUMMARIZE --> SUMVIEW
-    SUMMARIZE --> STREAM
-    SUMMARIZE --> CONFBADGE
-    SUMMARIZE --> ENTCHIPS
-    SUMMARIZE --> FEEDBACK
     PROFILE --> PERSFORM
-    COMPARE --> SUMVIEW
+    COMPARE --> CONFBADGE
+    COMPARE --> ENTCHIPS
 
+    %% Component nesting
     ARTLIST --> ARTCARD
+    SUMVIEW --> STREAM
+    SUMVIEW --> CONFBADGE
+    SUMVIEW --> ENTCHIPS
+    SUMVIEW --> FEEDBACK
 
-    %% store -> API bindings
-    USERSTORE -- "on login / switch" --> UP_R
-    PERSFORM -- "save prefs" --> UP_W
-    ARTSTORE -- "no user" --> A
-    ARTSTORE -- "has user" --> AP
-    SUMFORM -- "non-streaming" --> S
-    SUMFORM -- "streaming toggle" --> SS
-    FEEDBACK -- "like / dislike" --> FB
-    SUMSTORE -- "fetch personas" --> P
+    %% Store -> API request flow (solid = outgoing request)
+    NAV -- "switchUser()" --> USERSTORE
+    USERSTORE -- "loadProfile()" --> UP_R
+    PERSFORM -- "handleSave()" --> UP_W
+    ARTSTORE -- "anonymous" --> A
+    ARTSTORE -- "logged in" --> AP
+    SUMFORM -- "POST (non-streaming)" --> S
+    SUMFORM -- "EventSource (streaming)" --> SS
+    FEEDBACK -- "submitFeedback()" --> FB
+    SUMFORM -- "onMount" --> P
 
-    %% data flow back
-    UP_R -. "profile JSON" .-> USERSTORE
-    AP -. "ranked articles" .-> ARTSTORE
-    S -. "PipelineResult" .-> SUMSTORE
-    SS -. "SSE events" .-> STREAM
-    FB -. "updated weights" .-> USERSTORE
+    %% API -> Store response flow (dotted = incoming data)
+    UP_R -. "UserProfile JSON" .-> USERSTORE
+    A -. "Article[]" .-> ARTSTORE
+    AP -. "RankedArticle[]" .-> ARTSTORE
+    S -. "SummaryResult" .-> SUMSTORE
+    SS -. "SSE token events" .-> SUMSTORE
+    P -. "persona list" .-> SUMFORM
+    FB -. "triggers reload" .-> USERSTORE
+    FB -. "triggers reload" .-> ARTSTORE
 
-    %% styling
+    %% Backend internal flow
+    S --> EXT
+    S --> ABS
+    S --> VER
+    AP --> RANK
+    UP_W --> PROF
+    UP_R --> PROF
+    FB --> PROF
+    RANK --> PROF
+
+    %% Styling
     style SvelteApp fill:#1a1a2e,stroke:#7c3aed,color:#f3f4ff
     style API fill:#0d1117,stroke:#58a6ff,color:#f3f4ff
+    style Backend fill:#0d1117,stroke:#22c55e,color:#f3f4ff
     style Stores fill:#1e1233,stroke:#be123c,color:#f3f4ff
     style Components fill:#160b25,stroke:#7c3aed,color:#f3f4ff
     style Pages fill:#12081f,stroke:#5b21b6,color:#f3f4ff
+    style Layout fill:#12081f,stroke:#5b21b6,color:#f3f4ff

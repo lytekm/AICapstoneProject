@@ -168,15 +168,15 @@ flowchart TB
   - 223 tests, 91% coverage
   - Tag: `phase-4-complete`
 
-- [ ] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring**
-  - Flux kustomizations for Talos k8s cluster (vLLM, API, services, ingress)
-  - NVIDIA device plugin for GPU scheduling on RTX 3090
-  - Flux GitOps (auto-deploy on merge to main, fits existing Talos + Cilium stack)
-  - Svelte frontend replacing vanilla JS
-  - Prometheus + Grafana for inference metrics (tok/s, latency, GPU utilization)
-  - vLLM validation with live Mistral-7B endpoint
-  - Comparative eval: extractive vs hybrid vs pure LLM (with BERTScore)
-  - Side-by-side comparison view in frontend
+- [ ] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring** *(in progress)*
+  - [x] SvelteKit frontend: 4 pages, 9 components, 3 reactive stores, all 10 endpoints wired
+  - [x] Component-to-API architecture diagram (`docs/svelte-frontend.mmd`)
+  - [ ] Flux kustomizations for Talos k8s cluster (vLLM, API, services, ingress)
+  - [ ] NVIDIA device plugin for GPU scheduling on RTX 3090
+  - [ ] Flux GitOps (auto-deploy on merge to main, fits existing Talos + Cilium stack)
+  - [ ] Prometheus + Grafana for inference metrics (tok/s, latency, GPU utilization)
+  - [ ] Comparative eval: extractive vs hybrid vs pure LLM (with BERTScore)
+  - [ ] Portfolio polish: CI badges, screenshots, team credits
 
 ---
 
@@ -229,6 +229,25 @@ python -m eval.run_eval --output results/run.json
 Downloads CNN/DailyMail test split on first run, then caches locally.
 BERTScore requires `torch` and loads DeBERTa-xlarge-mnli (~700MB) on first run.
 
+### Svelte frontend (development)
+
+```bash
+cd web
+npm install                   # first time only
+npm run dev                   # Vite dev server on :5173, proxies /api to FastAPI
+```
+
+Run `make dev` in a separate terminal so the API is available. The Vite dev server proxies all `/api/*` requests to `localhost:8000`.
+
+### Svelte frontend (production build)
+
+```bash
+cd web
+npm run build                 # builds static files to frontend/
+```
+
+The `adapter-static` output replaces the contents of `frontend/` so FastAPI serves the built app at `/frontend/index.html`.
+
 ### Docker
 
 ```bash
@@ -275,7 +294,26 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   └── data_pipeline.py      RSS ingestion + text normalization
 │
 ├── frontend/
-│   └── index.html            vanilla JS frontend with SSE streaming
+│   └── index.html            legacy vanilla JS frontend (replaced by Svelte)
+│
+├── web/                      SvelteKit frontend (source)
+│   ├── package.json          dependencies and build scripts
+│   ├── svelte.config.js      adapter-static config (builds to frontend/)
+│   ├── vite.config.ts        dev server proxy to FastAPI
+│   └── src/
+│       ├── app.html          HTML shell
+│       ├── app.css           global theme (purple/burgundy dark palette)
+│       ├── lib/
+│       │   ├── api.ts        typed fetch wrappers for all 10 endpoints
+│       │   ├── types.ts      shared TypeScript interfaces
+│       │   ├── stores/       reactive state (user, articles, summary)
+│       │   └── components/   9 shared Svelte components
+│       └── routes/
+│           ├── +layout.svelte   navbar + toast shell
+│           ├── +page.svelte     / dashboard
+│           ├── summarize/       /summarize workspace
+│           ├── profile/         /profile preferences
+│           └── compare/         /compare side-by-side
 │
 ├── eval/
 │   ├── run_eval.py           reproducible evaluation CLI (argparse + JSON output)
