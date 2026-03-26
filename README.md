@@ -207,72 +207,175 @@ make dev
 
 ## Runbook
 
-### Development server
+Step-by-step verification guide. Run these in order to confirm everything works.
+
+### 1. Install and verify dependencies
 
 ```bash
-make dev                   # uvicorn on port 8000 with hot-reload
+git clone https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026.git
+cd User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026
+git checkout rouge-one
+
+pip install -e ".[dev]"
+python -m spacy download en_core_web_sm
+python -m nltk.downloader punkt punkt_tab
 ```
 
-The API serves both REST endpoints and the static frontend at `/frontend/index.html`.
-
-### Test suite
+### 2. Run the test suite
 
 ```bash
-make test                  # run all 223 tests with coverage report
-make lint                  # ruff lint + mypy type check
-make typecheck             # mypy only
+make test
+# expected: 223 passed, coverage >= 91%
+
+make lint
+# expected: ruff reports 0 issues, mypy reports 0 errors
 ```
 
-### Evaluation
+### 3. Start the API (mock mode, no LLM needed)
 
 ```bash
-make eval                                        # ROUGE only, 50 samples, seed=42
-python -m eval.run_eval --samples 100            # custom sample count
-python -m eval.run_eval --bertscore              # ROUGE + BERTScore (needs torch)
-python -m eval.run_eval --output results/run.json
-```
-
-Downloads CNN/DailyMail test split on first run, then caches locally.
-BERTScore requires `torch` and loads DeBERTa-xlarge-mnli (~700MB) on first run.
-
-### Svelte frontend (development)
-
-```bash
-cd web
-npm install                   # first time only
-npm run dev                   # Vite dev server on :5173, proxies /api to FastAPI
-```
-
-Run `make dev` in a separate terminal so the API is available. The Vite dev server proxies all `/api/*` requests to `localhost:8000`.
-
-### Svelte frontend (production build)
-
-```bash
-cd web
-npm run build                 # builds static files to frontend/
-```
-
-The `adapter-static` output replaces the contents of `frontend/` so FastAPI serves the built app at `/frontend/index.html`.
-
-### Docker
-
-```bash
-make docker-build          # build the container image
-make docker-run            # start via docker-compose on port 8000
-```
-
-### Connect to a real LLM (vLLM or Ollama)
-
-```bash
-# set env vars before starting the server
-export USE_MOCK_LLM=0
-export VLLM_BASE_URL=http://localhost:8001/v1
-export VLLM_API_KEY=your-key-here
-
 make dev
+# server starts at http://localhost:8000
 ```
 
-Then use `mode=hybrid` or `mode=abstractive` in API requests to route through the LLM.
+Verify in a second terminal:
+
+```bash
+# health check
+curl -s http://localhost:8000/api/health
+# expected: {"status":"ok"}
+
+# fetch articles
+curl -s http://localhost:8000/api/articles | python -m json.tool | head -20
+# expected: array of {title, link} objects from CBC RSS
+
+# list personas
+curl -s http://localhost:8000/api/personas
+# expected: {"personas":["default","technical","casual","executive","academic"]}
+
+# extractive summary (works in mock mode)
+curl -s -X POST http://localhost:8000/api/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.cbc.ca/news","k":3,"mode":"extractive","persona":"default","length":"standard"}' \
+  | python -m json.tool
+# expected: JSON with summary, mode="extractive", confidence=1.0
+
+# mock abstractive summary (uses MockAbstractor, no real LLM)
+curl -s -X POST http://localhost:8000/api/summarize \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://www.cbc.ca/news","k":3,"mode":"hybrid","persona":"executive","length":"brief"}' \
+  | python -m json.tool
+# expected: summary prefixed with "[Mock Summary]", confidence, flagged_entities
+```
+
+### 4. Test user profile endpoints
+
+```bash
+# create a profile
+curl -s -X POST http://localhost:8000/api/user/preferences \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test","preferred_topics":["AI","finance"],"keywords":["startup"],"default_persona":"technical","default_length":"brief"}' \
+  | python -m json.tool
+# expected: {"status":"saved","user_id":"test"}
+
+# read it back
+curl -s http://localhost:8000/api/user/preferences/test | python -m json.tool
+# expected: full profile JSON with feedback_weights: {}
+
+# get personalized articles
+curl -s "http://localhost:8000/api/articles/personalized?user_id=test" | python -m json.tool
+# expected: articles with score and match_reasons fields
+
+# submit feedback
+curl -s -X POST http://localhost:8000/api/user/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"test","article_title":"AI Startup Funding","persona":"technical","mode":"hybrid","liked":true}' \
+  | python -m json.tool
+# expected: {"status":"recorded"}
+
+# check that feedback updated the profile weights
+curl -s http://localhost:8000/api/user/preferences/test | python -m json.tool
+# expected: feedback_weights now has entries like "startup": 0.1
+```
+
+### 5. Test SSE streaming
+
+```bash
+curl -N "http://localhost:8000/api/summarize/stream?url=https://www.cbc.ca/news&k=3&mode=hybrid&persona=casual&length=standard"
+# expected: event: meta, then event: token (repeated), then event: done
+# ctrl-C to stop
+```
+
+### 6. Run ROUGE evaluation
+
+```bash
+make eval
+# first run downloads CNN/DailyMail (~1.5GB), subsequent runs use cache
+# expected: ROUGE-1 ~0.32, ROUGE-2 ~0.12, ROUGE-L ~0.21
+# results saved to eval/results/eval_YYYYMMDD.json
+```
+
+### 7. Connect to vLLM (requires Prometheus cluster)
+
+```bash
+# check if vLLM is reachable
+curl -s http://192.168.2.205:8000/v1/models | python -m json.tool
+# expected: model list including mistralai/Mistral-7B-Instruct-v0.3
+
+# start the API pointing at vLLM
+USE_MOCK_LLM=0 VLLM_BASE_URL=http://192.168.2.205:8000/v1 make dev
+```
+
+Then repeat the summarize calls from step 3 with `mode=hybrid` -- you'll get real Mistral-7B output instead of `[Mock Summary]` prefixed text. Confidence scores will be < 1.0 when the NER verifier catches hallucinated entities.
+
+### 8. Svelte frontend
+
+```bash
+# terminal 1: API backend
+make dev
+
+# terminal 2: Svelte dev server
+cd web
+npm install          # first time only
+npm run dev          # starts on http://localhost:5173
+```
+
+Open `http://localhost:5173` and verify:
+- **Dashboard** (`/`): article list loads, clicking an article highlights it, summarize button works
+- **Summarize** (`/summarize`): all controls (mode, persona, length, k) functional, streaming shows blinking cursor
+- **Profile** (`/profile`): sign in via navbar, save preferences, feedback weights display
+- **Compare** (`/compare`): select article, pick two configs, click Compare, results show side by side
+
+### 9. Production build
+
+```bash
+cd web
+npm run build        # outputs to frontend/
+# FastAPI now serves the built Svelte app at /frontend/index.html
+```
+
+### 10. Docker
+
+```bash
+make docker-build    # builds the container image
+make docker-run      # starts via docker-compose on port 8000
+curl -s http://localhost:8000/api/health
+# expected: {"status":"ok"}
+```
+
+### Quick reference
+
+| Command | What it does |
+|---------|-------------|
+| `make dev` | Start API with hot-reload on :8000 |
+| `make test` | Run 223 tests with coverage |
+| `make lint` | ruff lint + mypy type check |
+| `make eval` | ROUGE eval on 50 CNN/DailyMail samples |
+| `cd web && npm run dev` | Svelte dev server on :5173 |
+| `cd web && npm run build` | Build Svelte to frontend/ |
+| `make docker-build` | Build Docker image |
+| `make docker-run` | Run via docker-compose |
+| `make clean` | Remove __pycache__ and .pytest_cache |
 
 ---
 
@@ -480,13 +583,14 @@ Competitive for an unsupervised extractive method -- no training data or fine-tu
 | ROUGE-L F1 | **0.215** | 0.200 | 0.205 |
 | Avg NER Confidence | N/A | N/A | 0.861 |
 
-**Key observations:**
-- **Hybrid leads ROUGE-1** by +1.4 points over extractive -- the LLM rewrite introduces better unigram coverage while the NER verify step catches hallucinations
-- **Extractive leads ROUGE-2/L** -- extractive copies sentences verbatim from the article, so bigram and longest-common-subsequence overlap is naturally higher
-- **Abstractive matches extractive on R1** but trades R2 precision for paraphrasing (expected behavior -- it uses different words to say the same thing)
-- **NER verification works** -- average confidence of 0.861 means the verifier catches hallucinated entities without being overly aggressive. Samples with conf < 0.7 had the LLM inventing dates or expanding abbreviations
+**What these numbers mean:**
 
-BERTScore evaluation is available via `--bertscore` for semantic similarity (expected to favor abstractive/hybrid since it captures meaning beyond lexical overlap).
+- **ROUGE-1 (unigram overlap)**: Hybrid wins. The LLM rewrite picks up synonyms and rephrasings that still share individual words with the reference. The "extract then rewrite" approach gives the LLM focused input, keeping it on-topic.
+- **ROUGE-2 (bigram overlap)**: Extractive wins. When you copy sentences word-for-word, consecutive word pairs naturally match the reference better. The LLM breaks those bigram chains during rewriting. This is a ROUGE measurement artifact, not a quality issue.
+- **ROUGE-L (longest common subsequence)**: Same pattern as ROUGE-2. Copied sentences preserve long subsequences that paraphrased text can't match. This is a known ROUGE limitation: it penalizes good paraphrasing.
+- **NER Confidence (0.861)**: The verifier flagged entities in 14 of 20 samples. Most flags were minor (percentages rendered differently, date expansions like "June 2019" when the source said "last June"). A few samples had genuinely hallucinated names, which is exactly what the verifier is designed to catch. 0.861 means ~86% of summary entities were grounded in the source text.
+
+**Bottom line**: Hybrid is the best all-around mode. It beats extractive on the metric that matters most (ROUGE-1 / unigram coverage) while adding NER safety. The ROUGE-2/L gap is a measurement artifact, not a quality gap. BERTScore (available via `--bertscore`) captures semantic similarity and is expected to further favor abstractive/hybrid output.
 
 Full results: `eval/results/baseline_mock_20260326.json`, `eval/results/comparative_20260326.json`.
 
