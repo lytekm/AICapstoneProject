@@ -1,3 +1,14 @@
+"""Three-stage summarization pipeline: extract -> abstract -> verify.
+
+This is the core orchestration module. It wires together Kevin's
+TextRank+MMR extractor, the LLM-based abstractor, and the NER
+verifier into a single call. Each stage is optional depending on
+the mode:
+  - extractive: just TextRank+MMR, no LLM needed
+  - abstractive: extract first (to get key sentences), then LLM rewrites
+  - hybrid: extract -> LLM rewrite -> NER consistency check
+"""
+
 from __future__ import annotations
 
 import json
@@ -16,12 +27,17 @@ VALID_LENGTHS = {"brief", "standard", "detailed"}
 
 @dataclass
 class PipelineResult:
+    """Everything the API layer needs to build a response."""
+
     summary: str
     mode: str
     persona: str
+    # 1.0 = no hallucination risk, lower = NER found suspicious entities
     confidence: float = 1.0
     flagged_entities: list[str] = field(default_factory=list)
+    # the raw extracted sentences before LLM rewriting
     extractive_sentences: list[str] = field(default_factory=list)
+    # catch-all for error info, fallback flags, etc.
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
@@ -34,11 +50,13 @@ class SummarizationPipeline:
         abstractor: AbstractorBase | None = None,
         verifier: NERVerifier | None = None,
     ) -> None:
+        # each component can be injected for testing, otherwise use defaults
         self.summarizer = summarizer or TextRankMMRSummarizer()
         self.abstractor = abstractor or create_abstractor()
         self.verifier = verifier or NERVerifier()
 
     def _extract(self, text: str, k: int) -> dict[str, Any]:
+        """Run TextRank+MMR to pick the top-k sentences."""
         return self.summarizer.summarize(text, k=k)
 
     def _abstract(
@@ -47,8 +65,10 @@ class SummarizationPipeline:
         persona_name: str,
         length: str,
     ) -> str:
+        """Send extracted sentences to the LLM for a persona-styled rewrite."""
         persona = get_persona(persona_name)
         user_prompt = format_prompt(persona, sentences, length)
+        # scale the token budget based on requested length
         max_tokens = int(
             persona.max_tokens_hint
             * {"brief": 0.5, "standard": 1.0, "detailed": 2.0}.get(length, 1.0)
@@ -75,7 +95,7 @@ class SummarizationPipeline:
             valid = ", ".join(sorted(VALID_LENGTHS))
             raise ValueError(f"Unknown length '{length}'. Valid options: {valid}")
 
-        # Validate persona early
+        # validate persona early so we fail fast before doing expensive work
         get_persona(persona)
 
         if mode == "extractive":
@@ -88,15 +108,18 @@ class SummarizationPipeline:
     def _run_extractive(
         self, text: str, persona: str, k: int
     ) -> PipelineResult:
+        """Pure extractive: just return the top-k sentences as-is."""
         result = self._extract(text, k)
         selected = result.get("selected_indices", [])
         sentences = result.get("sentences", [])
+        # bounds-check in case the article had fewer sentences than k
         extracted = [sentences[i] for i in selected if i < len(sentences)]
 
         return PipelineResult(
             summary=str(result.get("summary", "")),
             mode="extractive",
             persona=persona,
+            # extractive is always 1.0 confidence -- no hallucination possible
             confidence=1.0,
             extractive_sentences=extracted,
         )
@@ -104,7 +127,12 @@ class SummarizationPipeline:
     def _run_abstractive(
         self, text: str, persona: str, length: str, k: int
     ) -> PipelineResult:
-        # Use extraction to get key sentences, then abstract over them
+        """Extract key sentences, then let the LLM rewrite them.
+
+        Even abstractive mode starts with extraction -- we don't send the
+        entire article to the LLM, just the most relevant sentences.
+        This keeps the prompt short and focused.
+        """
         result = self._extract(text, k)
         selected = result.get("selected_indices", [])
         sentences = result.get("sentences", [])
@@ -113,6 +141,7 @@ class SummarizationPipeline:
         try:
             summary = self._abstract(extracted, persona, length)
         except Exception as exc:
+            # if the LLM is down, fall back to extractive rather than crashing
             return PipelineResult(
                 summary=str(result.get("summary", "")),
                 mode="abstractive",
@@ -133,16 +162,23 @@ class SummarizationPipeline:
     def _run_hybrid(
         self, text: str, persona: str, length: str, k: int
     ) -> PipelineResult:
-        # Stage 1: Extract
+        """All three stages: extract -> abstract -> verify.
+
+        This is the full pipeline. After the LLM rewrites, we run NER
+        to check for hallucinated entities (names, orgs, etc. that
+        appear in the summary but not the source).
+        """
+        # Stage 1: pick the most relevant sentences
         result = self._extract(text, k)
         selected = result.get("selected_indices", [])
         sentences = result.get("sentences", [])
         extracted = [sentences[i] for i in selected if i < len(sentences)]
 
-        # Stage 2: Abstract
+        # Stage 2: LLM rewrite with persona styling
         try:
             summary = self._abstract(extracted, persona, length)
         except Exception as exc:
+            # graceful degradation: extractive output is still useful
             return PipelineResult(
                 summary=str(result.get("summary", "")),
                 mode="hybrid",
@@ -152,12 +188,13 @@ class SummarizationPipeline:
                 metadata={"abstractor_error": str(exc), "fallback": "extractive"},
             )
 
-        # Stage 3: Verify
+        # Stage 3: NER-based hallucination check
         try:
             verification = self.verifier.verify(text, summary)
             confidence = verification.confidence
             flagged = verification.flagged_entities
         except Exception:
+            # if spaCy fails, don't block the response
             confidence = 1.0
             flagged = []
 
@@ -181,7 +218,14 @@ class SummarizationPipeline:
         k: int = 5,
         delay: float = 0.02,
     ) -> Iterator[str]:
-        """Yield SSE-formatted events for streaming responses."""
+        """Yield SSE-formatted events for streaming responses.
+
+        The frontend listens for three event types:
+          - "meta": sent first, contains mode/persona info
+          - "token": one chunk of the LLM output (for progressive rendering)
+          - "done": final event with full summary, confidence, flagged entities
+        Extractive mode skips straight to "done" since there's no streaming.
+        """
         if mode not in VALID_MODES:
             yield _sse("error", {"detail": f"Unknown mode '{mode}'"})
             return
@@ -194,13 +238,13 @@ class SummarizationPipeline:
             yield _sse("error", {"detail": str(exc)})
             return
 
-        # stage 1: extract (always needed, even for abstractive)
+        # extraction is always the first step, even for streaming
         result = self._extract(text, k)
         selected = result.get("selected_indices", [])
         sentences = result.get("sentences", [])
         extracted = [sentences[i] for i in selected if i < len(sentences)]
 
-        # for extractive mode, just send the whole summary at once
+        # extractive mode has nothing to stream -- just send the result
         if mode == "extractive":
             yield _sse("done", {
                 "summary": str(result.get("summary", "")),
@@ -211,10 +255,10 @@ class SummarizationPipeline:
             })
             return
 
-        # send metadata before streaming starts
+        # tell the frontend what's coming before tokens start flowing
         yield _sse("meta", {"mode": mode, "persona": persona})
 
-        # stage 2: stream the abstraction token by token
+        # build the prompt the same way _abstract() does
         persona_obj = get_persona(persona)
         user_prompt = format_prompt(persona_obj, extracted, length)
         max_tokens = int(
@@ -222,6 +266,7 @@ class SummarizationPipeline:
             * {"brief": 0.5, "standard": 1.0, "detailed": 2.0}.get(length, 1.0)
         )
 
+        # accumulate the full text so we can verify it after streaming
         full_text = ""
         try:
             for token in self.abstractor.generate_stream(
@@ -233,7 +278,7 @@ class SummarizationPipeline:
                 full_text += token
                 yield _sse("token", {"text": token})
         except Exception as exc:
-            # fall back to extractive on LLM failure
+            # LLM died mid-stream; send extractive fallback
             yield _sse("done", {
                 "summary": str(result.get("summary", "")),
                 "mode": mode,
@@ -245,7 +290,7 @@ class SummarizationPipeline:
             })
             return
 
-        # stage 3: verify (hybrid only)
+        # run NER verification on the complete streamed output (hybrid only)
         confidence = 1.0
         flagged: list[str] = []
         if mode == "hybrid":
@@ -266,5 +311,9 @@ class SummarizationPipeline:
 
 
 def _sse(event: str, data: dict[str, Any]) -> str:
-    """Format a single SSE message."""
+    """Format a single Server-Sent Event.
+
+    SSE spec requires "event: <type>\\ndata: <json>\\n\\n".
+    The double newline at the end signals the end of one event.
+    """
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"

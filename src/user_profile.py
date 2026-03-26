@@ -62,12 +62,14 @@ class ProfileStore:
             return
         try:
             raw = json.loads(self._path.read_text(encoding="utf-8"))
-            # the file stores a dict keyed by user_id
+            # the file stores a dict keyed by user_id, but the inner
+            # dicts don't redundantly store user_id -- we inject it here
             for uid, data in raw.items():
                 data["user_id"] = uid
                 self._profiles[uid] = _profile_from_dict(data)
         except (json.JSONDecodeError, KeyError):
             # corrupted file -- start fresh rather than crash
+            # better to lose saved profiles than to error on every request
             self._profiles = {}
 
     def _flush(self) -> None:

@@ -1,3 +1,17 @@
+"""Persona definitions for styled summaries.
+
+Each persona has two prompt components:
+  - system_prompt: sets the LLM's "role" (who it is)
+  - style_instructions: goes in the user prompt (how to write)
+
+The split matters because system prompts are weighted differently
+by most LLMs. The system prompt establishes tone; style_instructions
+give concrete writing rules the model can follow.
+
+max_tokens_hint is the base budget for "standard" length. The pipeline
+scales it by 0.5x for "brief" and 2x for "detailed".
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,12 +19,16 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class Persona:
+    """Immutable persona config. Frozen so we don't accidentally mutate."""
+
     name: str
     system_prompt: str
     style_instructions: str
+    # base token budget -- gets scaled by length multiplier
     max_tokens_hint: int
 
 
+# each persona targets a different reading audience
 TECHNICAL = Persona(
     name="technical",
     system_prompt=(
@@ -68,6 +86,7 @@ ACADEMIC = Persona(
     max_tokens_hint=512,
 )
 
+# "default" maps to casual -- the safest choice for general audiences
 DEFAULT = CASUAL
 
 PERSONAS: dict[str, Persona] = {
@@ -78,6 +97,8 @@ PERSONAS: dict[str, Persona] = {
     "default": DEFAULT,
 }
 
+# these scale the persona's base max_tokens_hint
+# brief = half the tokens, detailed = double
 LENGTH_MULTIPLIERS: dict[str, float] = {
     "brief": 0.5,
     "standard": 1.0,
@@ -99,10 +120,15 @@ def format_prompt(
     extracted_sentences: list[str],
     length: str = "standard",
 ) -> str:
-    """Build the user prompt combining persona style, extracted text, and length."""
+    """Build the user prompt combining persona style, extracted text, and length.
+
+    Structure: style instructions first (so the LLM sees the rules before
+    the content), then the token budget, then the sentences as a bulleted list.
+    """
     multiplier = LENGTH_MULTIPLIERS.get(length, 1.0)
     max_tokens = int(persona.max_tokens_hint * multiplier)
 
+    # format as bullet list so the LLM can clearly see each input sentence
     sentences_block = "\n".join(
         f"- {s}" for s in extracted_sentences if s.strip()
     )

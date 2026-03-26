@@ -1,3 +1,15 @@
+"""NER-based factual consistency verification.
+
+After the LLM rewrites a summary, we need to check whether it
+hallucinated any named entities (people, organizations, locations, etc.)
+that weren't in the original article. This module does that by
+comparing spaCy NER output between source and summary.
+
+If an entity shows up in the summary but not the source, it's
+flagged as potentially hallucinated. The confidence score drops
+proportionally to how many entities were flagged.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -6,8 +18,12 @@ from typing import Any
 
 @dataclass
 class VerificationResult:
+    """Output of the NER consistency check."""
+
     confidence: float
+    # entities in the summary that don't appear in the source
     flagged_entities: list[str] = field(default_factory=list)
+    # all entities found in the source (for debugging/display)
     source_entities: list[str] = field(default_factory=list)
     summary_entities: list[str] = field(default_factory=list)
 
@@ -30,6 +46,8 @@ class NERVerifier:
 
             self.nlp = spacy.load(model_name)
         except Exception:
+            # spaCy not installed or model not downloaded -- that's ok,
+            # we just skip verification and return full confidence
             pass
 
     @property
@@ -45,6 +63,7 @@ class NERVerifier:
             return set()
 
         doc = self.nlp(text)
+        # lowercase + strip so "Apple Inc." and "apple inc." match
         return {ent.text.strip().lower() for ent in doc.ents if ent.text.strip()}
 
     def verify(self, source_text: str, summary_text: str) -> VerificationResult:
@@ -59,6 +78,7 @@ class NERVerifier:
         source_ents = self.extract_entities(source_text)
         summary_ents = self.extract_entities(summary_text)
 
+        # no entities in the summary means nothing to verify
         if not summary_ents:
             return VerificationResult(
                 confidence=1.0,
@@ -66,10 +86,13 @@ class NERVerifier:
                 summary_entities=[],
             )
 
+        # set difference: entities in summary but NOT in source = suspicious
         flagged = summary_ents - source_ents
+        # more flagged entities = lower confidence
         confidence = 1.0 - (len(flagged) / len(summary_ents))
 
         return VerificationResult(
+            # floor at 0.0 in case everything got flagged
             confidence=max(0.0, confidence),
             flagged_entities=sorted(flagged),
             source_entities=sorted(source_ents),
