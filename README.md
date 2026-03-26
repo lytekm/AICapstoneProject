@@ -55,6 +55,8 @@ flowchart TB
         SSE[GET /api/summarize/stream]
         ART[GET /api/articles]
         PER[GET /api/personas]
+        UPROF[User Profiles\npreferences + feedback]
+        RANK[Article Ranker\npersonalized feed]
     end
 
     subgraph Pipeline
@@ -70,10 +72,18 @@ flowchart TB
         CNN[CNN/DailyMail\nHuggingFace]
     end
 
+    subgraph Storage
+        JSON[JSON Files\nprofiles + feedback]
+    end
+
     UI --> REST
     UI --> SSE
     UI --> ART
+    UI --> UPROF
     ART --> RSS
+    RANK --> RSS
+    UPROF --> JSON
+    RANK --> UPROF
     REST --> EXT
     REST --> ABS
     REST --> VER
@@ -86,6 +96,7 @@ flowchart TB
 
     style LLM fill:#fff3e0,stroke:#e65100
     style RSS fill:#e3f2fd,stroke:#1565c0
+    style JSON fill:#f3e5f5,stroke:#7b1fa2
 ```
 
 ---
@@ -143,16 +154,17 @@ flowchart TB
 ### Milestone 2: Intelligence + Deployment
 > Planned. Hardware setup in progress.
 
-- [ ] **Phase 4: vLLM Integration, Embeddings, User Profiles + Feedback**
-  - Validate real LLM path with vLLM on RTX 3090
-  - Sentence embeddings (`all-MiniLM-L6-v2`) replacing TF-IDF for semantic similarity
-  - Position bias scoring for news articles (inverted pyramid)
-  - User profile model with stored preferences (topics, keywords, persona defaults)
-  - Article ranking system (topic similarity + keyword match + recency scoring)
-  - Feedback loop (like/dislike per summary, adjusts ranking)
-  - New endpoints: `/api/user/preferences`, `/api/user/feedback`, `/api/articles/personalized`
-  - Baseline ROUGE evaluation results committed to `eval/results/`
-  - BERTScore evaluation alongside ROUGE
+- [ ] **Phase 4: User Profiles, Feedback, and vLLM Validation** *(in progress)*
+  - [x] User profile model with JSON-backed persistence (topics, keywords, persona defaults)
+  - [x] Article ranking system (topic similarity + keyword match + feedback weight scoring)
+  - [x] Feedback loop (like/dislike per summary, adjusts profile weights over time)
+  - [x] New endpoints: `/api/user/preferences`, `/api/user/feedback`, `/api/articles/personalized`
+  - [x] Existing `/api/summarize` accepts optional `user_id` for profile-driven defaults
+  - [ ] Validate real LLM path with vLLM on RTX 3090
+  - [ ] BERTScore evaluation alongside ROUGE
+  - [ ] Baseline evaluation results committed to `eval/results/`
+  - [ ] Inline comments pass across all modules
+  - Algorithm upgrades (sentence embeddings, position bias) deferred pending team discussion
 
 - [ ] **Phase 5: k3s Deployment, GitOps, Frontend Rewrite, Monitoring**
   - k3s manifests: vLLM deployment, API deployment, services, ingress
@@ -253,6 +265,9 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   ├── evaluator.py          ROUGE scoring
 │   ├── dataset_loader.py     CNN/DailyMail dataset loader (HuggingFace)
 │   ├── trainer.py            hyperparameter tuning for extractive config
+│   ├── user_profile.py       user preference model + JSON storage
+│   ├── article_ranker.py     ranks articles by user profile relevance
+│   ├── feedback.py           like/dislike collection + profile weight adjustment
 │   └── data_pipeline.py      RSS ingestion + text normalization
 │
 ├── frontend/
@@ -271,6 +286,9 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   ├── test_personas.py      persona definitions, prompt formatting
 │   ├── test_api.py           all endpoints including SSE stream
 │   ├── test_eval.py          evaluation script and CLI
+│   ├── test_user_profile.py  profile CRUD, persistence, corruption recovery
+│   ├── test_article_ranker.py topic/keyword/feedback scoring, sort stability
+│   ├── test_feedback.py      feedback recording, apply_feedback weight adjustment
 │   ├── test_data_pipeline.py normalization, tokenization, RSS fetch
 │   ├── test_dataset_loader.py CNN/DailyMail loader
 │   ├── test_evaluator.py     ROUGE evaluator
@@ -294,6 +312,10 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 | `GET` | `/api/personas` | List available persona names |
 | `POST` | `/api/summarize` | Summarize an article (JSON body) |
 | `GET` | `/api/summarize/stream` | SSE streaming summary (query params) |
+| `POST` | `/api/user/preferences` | Create/update user profile |
+| `GET` | `/api/user/preferences/{user_id}` | Get user preferences |
+| `POST` | `/api/user/feedback` | Record like/dislike on a summary |
+| `GET` | `/api/articles/personalized` | Ranked articles for a user profile |
 
 ### POST /api/summarize
 
@@ -318,6 +340,36 @@ Returns `text/event-stream` with event types:
 - `event: token` - individual tokens as they generate
 - `event: done` - final summary with confidence and flagged entities
 - `event: error` - error message if something fails
+
+### POST /api/user/preferences
+
+```json
+{
+  "user_id": "demo",
+  "preferred_topics": ["AI", "finance"],
+  "keywords": ["startup", "GPU"],
+  "default_persona": "technical",
+  "default_length": "brief"
+}
+```
+
+### POST /api/user/feedback
+
+```json
+{
+  "user_id": "demo",
+  "article_title": "AI Startups Raise Record Funding",
+  "persona": "technical",
+  "mode": "hybrid",
+  "liked": true
+}
+```
+
+Feedback adjusts the user's profile weights automatically. Liked article topics get boosted in future rankings, disliked topics get slightly penalized.
+
+### GET /api/articles/personalized?user_id=demo
+
+Returns the same articles as `/api/articles` but scored and sorted by relevance to the user's profile. Each article includes a `score` and `match_reasons` array.
 
 ---
 
@@ -348,10 +400,11 @@ The extractive stage uses TextRank for importance scoring with cosine similarity
 
 | Metric | Value |
 |--------|-------|
-| Tests | 168 |
-| Coverage | 88% |
+| Tests | 215 |
+| Coverage | 91% |
 | Pipeline modes | 3 (extractive, abstractive, hybrid) |
 | Personas | 5 (default, technical, casual, executive, academic) |
-| API endpoints | 6 |
+| API endpoints | 10 |
 | CI | GitHub Actions (ruff + mypy + pytest) |
 | Frontend controls | 5 (article, k, mode, persona, length) |
+| User adaptation | Profiles, ranked articles, feedback loop |
