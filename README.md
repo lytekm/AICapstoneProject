@@ -1,6 +1,11 @@
 # User-Adaptive Summarization
 
-A three-stage NLP pipeline that produces persona-aware summaries of news articles, with extractive, abstractive, and hybrid modes. Built with FastAPI, spaCy, and an OpenAI-compatible LLM backend.
+[![CI](https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026/actions/workflows/ci.yml/badge.svg?branch=rouge-one)](https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026/actions)
+![Tests](https://img.shields.io/badge/tests-223_passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
+![Python](https://img.shields.io/badge/python-3.10+-blue)
+
+A three-stage NLP pipeline that produces persona-aware summaries of news articles, with extractive, abstractive, and hybrid modes. Built with FastAPI, SvelteKit, spaCy, and an OpenAI-compatible LLM backend (vLLM/Mistral-7B on RTX 3090).
 
 COMP385-402 Capstone Project, Group 4, Centennial College, Winter 2026.
 
@@ -168,15 +173,16 @@ flowchart TB
   - 223 tests, 91% coverage
   - Tag: `phase-4-complete`
 
-- [ ] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring** *(in progress)*
+- [x] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring**
   - [x] SvelteKit frontend: 4 pages, 9 components, 3 reactive stores, all 10 endpoints wired
   - [x] Component-to-API architecture diagram (`docs/svelte-frontend.mmd`)
-  - [ ] Flux kustomizations for Talos k8s cluster (vLLM, API, services, ingress)
-  - [ ] NVIDIA device plugin for GPU scheduling on RTX 3090
-  - [ ] Flux GitOps (auto-deploy on merge to main, fits existing Talos + Cilium stack)
-  - [ ] Prometheus + Grafana for inference metrics (tok/s, latency, GPU utilization)
-  - [ ] Comparative eval: extractive vs hybrid vs pure LLM (with BERTScore)
-  - [ ] Portfolio polish: CI badges, screenshots, team credits
+  - [x] Flux kustomizations for Talos k8s cluster (vLLM, API, services, Cilium ingress)
+  - [x] NVIDIA device plugin GPU request for RTX 3090
+  - [x] Flux GitRepository + Kustomization for GitOps reconciliation
+  - [x] Prometheus ServiceMonitors + Grafana dashboard (tok/s, cache, GPU util, uptime)
+  - [x] Comparative eval: extractive vs abstractive vs hybrid on live Mistral-7B (20 samples)
+  - [x] Portfolio polish: CI badges, test/coverage shields, updated README
+  - Tag: `phase-5-complete`
 
 ---
 
@@ -317,7 +323,20 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │
 ├── eval/
 │   ├── run_eval.py           reproducible evaluation CLI (argparse + JSON output)
-│   └── results/              saved evaluation outputs
+│   └── results/              saved evaluation outputs (baseline + comparative)
+│
+├── k8s/
+│   ├── base/                 kustomize base: namespace, deployments, services, ingress
+│   │   ├── kustomization.yaml
+│   │   ├── vllm-deployment.yaml   Mistral-7B on RTX 3090 (GPU request)
+│   │   ├── api-deployment.yaml    FastAPI backend (2 replicas)
+│   │   └── ingress.yaml           Cilium ingress at summarizer.local
+│   ├── monitoring/
+│   │   ├── api-servicemonitor.yaml    Prometheus scrape for API
+│   │   ├── vllm-servicemonitor.yaml   Prometheus scrape for vLLM /metrics
+│   │   └── grafana-dashboard.json     7-panel dashboard (tok/s, cache, GPU)
+│   ├── flux-source.yaml       GitRepository pointing at ixxet fork
+│   └── flux-kustomization.yaml  Flux reconciliation config
 │
 ├── tests/                    223 tests, 91% coverage
 │   ├── conftest.py           shared fixtures and sample data
@@ -438,9 +457,9 @@ The extractive stage uses TextRank for importance scoring with cosine similarity
 
 ---
 
-## Baseline Evaluation Results
+## Evaluation Results
 
-Extractive-only baseline on 50 CNN/DailyMail test samples (seed=42, k=5):
+### Extractive Baseline (50 samples, seed=42, k=5)
 
 | Metric | Score |
 |--------|-------|
@@ -448,11 +467,28 @@ Extractive-only baseline on 50 CNN/DailyMail test samples (seed=42, k=5):
 | ROUGE-2 F1 | 0.125 |
 | ROUGE-L F1 | 0.208 |
 
-These are competitive for an unsupervised extractive method -- no training data or fine-tuning involved. ROUGE-1 in the 0.30-0.35 range is typical for TextRank-family models on CNN/DailyMail. BERTScore evaluation is available via `--bertscore` but requires torch and a GPU for reasonable speed.
+Competitive for an unsupervised extractive method -- no training data or fine-tuning involved.
 
-Full results are stored in `eval/results/baseline_mock_20260326.json` for reproducibility.
+### Comparative: Extractive vs Abstractive vs Hybrid
 
-**Next benchmark target**: run the hybrid pipeline against the same 50 samples with Mistral-7B on vLLM to compare extractive vs abstractive vs hybrid ROUGE and BERTScore.
+20 CNN/DailyMail test samples, Mistral-7B-Instruct-v0.3 on RTX 3090 via vLLM:
+
+| Metric | Extractive | Abstractive | Hybrid |
+|--------|-----------|-------------|--------|
+| ROUGE-1 F1 | 0.325 | 0.325 | **0.339** |
+| ROUGE-2 F1 | **0.128** | 0.103 | 0.105 |
+| ROUGE-L F1 | **0.215** | 0.200 | 0.205 |
+| Avg NER Confidence | N/A | N/A | 0.861 |
+
+**Key observations:**
+- **Hybrid leads ROUGE-1** by +1.4 points over extractive -- the LLM rewrite introduces better unigram coverage while the NER verify step catches hallucinations
+- **Extractive leads ROUGE-2/L** -- extractive copies sentences verbatim from the article, so bigram and longest-common-subsequence overlap is naturally higher
+- **Abstractive matches extractive on R1** but trades R2 precision for paraphrasing (expected behavior -- it uses different words to say the same thing)
+- **NER verification works** -- average confidence of 0.861 means the verifier catches hallucinated entities without being overly aggressive. Samples with conf < 0.7 had the LLM inventing dates or expanding abbreviations
+
+BERTScore evaluation is available via `--bertscore` for semantic similarity (expected to favor abstractive/hybrid since it captures meaning beyond lexical overlap).
+
+Full results: `eval/results/baseline_mock_20260326.json`, `eval/results/comparative_20260326.json`.
 
 ---
 
@@ -476,7 +512,7 @@ The `MockAbstractor` is deterministic and fast, which is great for CI, but it pr
 - Streaming tests verify the SSE protocol but not actual token generation timing
 - Persona styling has zero effect in mock mode (the prompt is ignored)
 
-Until vLLM validation runs on the Prometheus cluster, we can only benchmark the extractive stage. The hybrid and abstractive numbers will come once the RTX 3090 endpoint is reachable from the dev network.
+The comparative evaluation (see results above) confirms this gap: hybrid ROUGE-1 is only +1.4 points over extractive on CNN/DailyMail, partly because ROUGE penalizes paraphrasing. BERTScore would give a fairer picture of semantic quality.
 
 ### NER verification false positives
 
@@ -518,6 +554,8 @@ The dual-metric approach (ROUGE for lexical, BERTScore for semantic) gives a mor
 | Personas | 5 (default, technical, casual, executive, academic) |
 | API endpoints | 10 |
 | Evaluation metrics | ROUGE-1/2/L + BERTScore (P/R/F1) |
+| LLM backend | Mistral-7B-Instruct-v0.3 on RTX 3090 via vLLM |
+| Frontend | SvelteKit (4 pages, 9 components, SSE streaming) |
+| Infrastructure | Talos k8s, Flux GitOps, Cilium CNI, Prometheus + Grafana |
 | CI | GitHub Actions (ruff + mypy + pytest) |
-| Frontend controls | 5 (article, k, mode, persona, length) |
 | User adaptation | Profiles, ranked articles, feedback loop |
