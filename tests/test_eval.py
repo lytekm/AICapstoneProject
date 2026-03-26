@@ -88,6 +88,22 @@ class TestFormatTable:
         table = format_table(scores)
         assert "0.000" in table
 
+    def test_includes_bertscore_when_present(self):
+        scores = {
+            "rouge1_f": 0.35, "rouge2_f": 0.12, "rougeL_f": 0.30,
+            "bert_precision": 0.91, "bert_recall": 0.89, "bert_f1": 0.90,
+        }
+        table = format_table(scores)
+        assert "BERT Prec" in table
+        assert "BERT Recall" in table
+        assert "BERT F1" in table
+        assert "0.910" in table
+
+    def test_omits_bertscore_when_absent(self):
+        scores = {"rouge1_f": 0.35, "rouge2_f": 0.12, "rougeL_f": 0.30}
+        table = format_table(scores)
+        assert "BERT" not in table
+
 
 class TestMainCLI:
     @patch("eval.run_eval.run_evaluation")
@@ -124,3 +140,23 @@ class TestMainCLI:
 
         # should have created eval/results/ directory
         assert (tmp_path / "eval" / "results").exists()
+
+    @patch("eval.run_eval.run_evaluation")
+    def test_bertscore_flag_passed_through(self, mock_run, tmp_path):
+        mock_run.return_value = {
+            "timestamp": "2026-01-01T00:00:00",
+            "samples": 5,
+            "seed": 42,
+            "k": 5,
+            "model": "test",
+            "scores": {"rouge1_f": 0.3, "rouge2_f": 0.1, "rougeL_f": 0.25,
+                        "bert_precision": 0.9, "bert_recall": 0.88, "bert_f1": 0.89},
+        }
+
+        out_file = tmp_path / "bert_out.json"
+        main(["--samples", "5", "--bertscore", "--output", str(out_file)])
+
+        # the --bertscore flag should be forwarded to run_evaluation
+        mock_run.assert_called_once_with(
+            samples=5, seed=42, k=5, bertscore=True,
+        )
