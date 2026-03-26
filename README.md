@@ -108,7 +108,7 @@ flowchart TB
 - **Length control**: brief, standard, detailed options that scale the LLM token budget
 - **SSE streaming**: token-by-token delivery for abstractive/hybrid via `EventSource`
 - **NER verification**: spaCy-based factual consistency check with confidence scoring and flagged entity reporting
-- **ROUGE evaluation**: reproducible eval script on CNN/DailyMail test split
+- **Dual evaluation**: ROUGE (lexical overlap) and BERTScore (semantic similarity) on CNN/DailyMail test split
 - **Mock-first design**: runs fully offline with `MockAbstractor`; real LLM opt-in via env vars
 - **CI/CD**: GitHub Actions pipeline with lint (ruff), type check (mypy), and test (pytest) on every push
 
@@ -154,26 +154,28 @@ flowchart TB
 ### Milestone 2: Intelligence + Deployment
 > Planned. Hardware setup in progress.
 
-- [ ] **Phase 4: User Profiles, Feedback, and vLLM Validation** *(in progress)*
+- [x] **Phase 4: User Profiles, Feedback, and Evaluation**
   - [x] User profile model with JSON-backed persistence (topics, keywords, persona defaults)
   - [x] Article ranking system (topic similarity + keyword match + feedback weight scoring)
   - [x] Feedback loop (like/dislike per summary, adjusts profile weights over time)
   - [x] New endpoints: `/api/user/preferences`, `/api/user/feedback`, `/api/articles/personalized`
   - [x] Existing `/api/summarize` accepts optional `user_id` for profile-driven defaults
-  - [ ] Validate real LLM path with vLLM on RTX 3090
-  - [ ] BERTScore evaluation alongside ROUGE
-  - [ ] Baseline evaluation results committed to `eval/results/`
-  - [ ] Inline comments pass across all modules
+  - [x] BERTScore evaluator alongside ROUGE (opt-in via `--bertscore`)
+  - [x] Baseline evaluation results committed to `eval/results/`
+  - [x] Inline comments pass across all modules
+  - [ ] Validate real LLM path with vLLM on RTX 3090 (deferred -- cluster unreachable from dev network)
   - Algorithm upgrades (sentence embeddings, position bias) deferred pending team discussion
+  - 223 tests, 91% coverage
+  - Tag: `phase-4-complete`
 
-- [ ] **Phase 5: k3s Deployment, GitOps, Frontend Rewrite, Monitoring**
-  - k3s manifests: vLLM deployment, API deployment, services, ingress
-  - NVIDIA GPU Operator for GPU scheduling
-  - ArgoCD GitOps (auto-deploy on merge to main)
+- [ ] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring**
+  - Flux kustomizations for Talos k8s cluster (vLLM, API, services, ingress)
+  - NVIDIA device plugin for GPU scheduling on RTX 3090
+  - Flux GitOps (auto-deploy on merge to main, fits existing Talos + Cilium stack)
   - Svelte frontend replacing vanilla JS
   - Prometheus + Grafana for inference metrics (tok/s, latency, GPU utilization)
-  - Helm chart for the full stack
-  - Comparative eval: extractive vs hybrid vs pure LLM
+  - vLLM validation with live Mistral-7B endpoint
+  - Comparative eval: extractive vs hybrid vs pure LLM (with BERTScore)
   - Side-by-side comparison view in frontend
 
 ---
@@ -210,20 +212,22 @@ The API serves both REST endpoints and the static frontend at `/frontend/index.h
 ### Test suite
 
 ```bash
-make test                  # run all 168 tests with coverage report
+make test                  # run all 223 tests with coverage report
 make lint                  # ruff lint + mypy type check
 make typecheck             # mypy only
 ```
 
-### ROUGE evaluation
+### Evaluation
 
 ```bash
-make eval                              # default: 50 samples, seed=42
-python -m eval.run_eval --samples 100  # custom sample count
-python -m eval.run_eval --output results/my_run.json
+make eval                                        # ROUGE only, 50 samples, seed=42
+python -m eval.run_eval --samples 100            # custom sample count
+python -m eval.run_eval --bertscore              # ROUGE + BERTScore (needs torch)
+python -m eval.run_eval --output results/run.json
 ```
 
 Downloads CNN/DailyMail test split on first run, then caches locally.
+BERTScore requires `torch` and loads DeBERTa-xlarge-mnli (~700MB) on first run.
 
 ### Docker
 
@@ -262,7 +266,7 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   ├── personas.py           persona definitions and prompt builder
 │   ├── abstractor.py         LLM abstraction layer (mock + real via OpenAI SDK)
 │   ├── verifier.py           NER-based factual consistency checker (spaCy)
-│   ├── evaluator.py          ROUGE scoring
+│   ├── evaluator.py          ROUGE + BERTScore evaluation
 │   ├── dataset_loader.py     CNN/DailyMail dataset loader (HuggingFace)
 │   ├── trainer.py            hyperparameter tuning for extractive config
 │   ├── user_profile.py       user preference model + JSON storage
@@ -277,7 +281,7 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   ├── run_eval.py           reproducible evaluation CLI (argparse + JSON output)
 │   └── results/              saved evaluation outputs
 │
-├── tests/                    168 tests, 88% coverage
+├── tests/                    223 tests, 91% coverage
 │   ├── conftest.py           shared fixtures and sample data
 │   ├── test_summarizer.py    TextRank scoring, MMR selection, edge cases
 │   ├── test_summarization_pipeline.py   all 3 modes + streaming + errors
@@ -285,13 +289,13 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   ├── test_verifier.py      NER extraction, confidence, graceful fallback
 │   ├── test_personas.py      persona definitions, prompt formatting
 │   ├── test_api.py           all endpoints including SSE stream
-│   ├── test_eval.py          evaluation script and CLI
+│   ├── test_eval.py          evaluation CLI (ROUGE + BERTScore flag)
 │   ├── test_user_profile.py  profile CRUD, persistence, corruption recovery
 │   ├── test_article_ranker.py topic/keyword/feedback scoring, sort stability
 │   ├── test_feedback.py      feedback recording, apply_feedback weight adjustment
 │   ├── test_data_pipeline.py normalization, tokenization, RSS fetch
 │   ├── test_dataset_loader.py CNN/DailyMail loader
-│   ├── test_evaluator.py     ROUGE evaluator
+│   ├── test_evaluator.py     ROUGE + BERTScore evaluators
 │   └── test_trainer.py       hyperparameter tuning
 │
 ├── .github/workflows/
@@ -396,15 +400,84 @@ The extractive stage uses TextRank for importance scoring with cosine similarity
 
 ---
 
+## Baseline Evaluation Results
+
+Extractive-only baseline on 50 CNN/DailyMail test samples (seed=42, k=5):
+
+| Metric | Score |
+|--------|-------|
+| ROUGE-1 F1 | 0.324 |
+| ROUGE-2 F1 | 0.125 |
+| ROUGE-L F1 | 0.208 |
+
+These are competitive for an unsupervised extractive method -- no training data or fine-tuning involved. ROUGE-1 in the 0.30-0.35 range is typical for TextRank-family models on CNN/DailyMail. BERTScore evaluation is available via `--bertscore` but requires torch and a GPU for reasonable speed.
+
+Full results are stored in `eval/results/baseline_mock_20260326.json` for reproducibility.
+
+**Next benchmark target**: run the hybrid pipeline against the same 50 samples with Mistral-7B on vLLM to compare extractive vs abstractive vs hybrid ROUGE and BERTScore.
+
+---
+
+## Challenges and Growing Pains
+
+Real-world problems we hit during development and how we dealt with them.
+
+### Extractive model limitations
+
+TextRank+MMR is fast and training-free, but it has known blind spots:
+- **Lead bias**: news articles front-load important information, and TextRank often over-selects early sentences. The centroid blending (`blend_alpha=0.7`) helps, but doesn't fully eliminate it.
+- **Redundancy in similar sentences**: MMR with `lambda=0.75` penalizes redundancy, but two sentences that say the same thing with different words can still both get selected because TF-IDF doesn't capture semantic similarity.
+- **Short article collapse**: articles under ~5 sentences produce a near-trivial similarity matrix. The `minmax` normalization handles the degenerate case, but the "summary" is basically the whole article.
+
+These are addressable with sentence-transformer embeddings and position-aware scoring, but those changes are deferred pending team discussion to avoid disrupting the existing algorithm.
+
+### Mock vs real LLM gap
+
+The `MockAbstractor` is deterministic and fast, which is great for CI, but it produces summaries that are just the first 3 extracted sentences glued together. This means:
+- ROUGE scores from mock runs reflect extractive quality, not abstractive quality
+- Streaming tests verify the SSE protocol but not actual token generation timing
+- Persona styling has zero effect in mock mode (the prompt is ignored)
+
+Until vLLM validation runs on the Prometheus cluster, we can only benchmark the extractive stage. The hybrid and abstractive numbers will come once the RTX 3090 endpoint is reachable from the dev network.
+
+### NER verification false positives
+
+The spaCy `en_core_web_sm` model flags entities that are technically valid but look suspicious:
+- Abbreviations the LLM introduces (e.g., "WHO" expanded to "World Health Organization" gets flagged because the exact string wasn't in the source)
+- Possessive forms ("Canada's" vs "Canada") fail the exact-match comparison
+- Common words incorrectly tagged as entities by the small model
+
+We normalize with lowercase + strip, which helps, but a more robust approach would use entity linking or a larger spaCy model. The current setup is good enough for a confidence signal, not a hard filter.
+
+### vLLM network reachability
+
+The Prometheus cluster (Talos k8s, RTX 3090, vLLM serving Mistral-7B at `192.168.2.205:8000/v1`) is on a home lab network. During development:
+- The cluster is unreachable from campus/public WiFi without Tailscale
+- vLLM cold starts take ~45s to load the model into GPU memory
+- The API defaults to mock mode (`USE_MOCK_LLM=1`) so the entire codebase works without any LLM connectivity
+
+Phase 5 will add Flux manifests that deploy the API alongside vLLM in the same cluster, eliminating the network hop issue entirely.
+
+### Evaluation bottlenecks
+
+- CNN/DailyMail downloads ~1.5GB on first run and takes a few seconds to shuffle. Subsequent runs use the HuggingFace cache.
+- BERTScore loads DeBERTa-xlarge-mnli (~700MB) and runs inference on every prediction/reference pair. On CPU this takes ~10 minutes for 50 samples. On GPU it drops to under a minute.
+- ROUGE scoring is fast (<1s for 50 samples) but only measures lexical overlap, so it undervalues paraphrased summaries that the abstractive mode produces.
+
+The dual-metric approach (ROUGE for lexical, BERTScore for semantic) gives a more complete picture of summary quality.
+
+---
+
 ## Current Numbers
 
 | Metric | Value |
 |--------|-------|
-| Tests | 215 |
+| Tests | 223 |
 | Coverage | 91% |
 | Pipeline modes | 3 (extractive, abstractive, hybrid) |
 | Personas | 5 (default, technical, casual, executive, academic) |
 | API endpoints | 10 |
+| Evaluation metrics | ROUGE-1/2/L + BERTScore (P/R/F1) |
 | CI | GitHub Actions (ruff + mypy + pytest) |
 | Frontend controls | 5 (article, k, mode, persona, length) |
 | User adaptation | Profiles, ranked articles, feedback loop |
