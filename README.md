@@ -253,8 +253,7 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   ├── evaluator.py          ROUGE scoring
 │   ├── dataset_loader.py     CNN/DailyMail dataset loader (HuggingFace)
 │   ├── trainer.py            hyperparameter tuning for extractive config
-│   ├── data_pipeline.py      RSS ingestion + text normalization
-│   └── run_iteration1.py     original iteration 1 runner
+│   └── data_pipeline.py      RSS ingestion + text normalization
 │
 ├── frontend/
 │   └── index.html            vanilla JS frontend with SSE streaming
@@ -281,8 +280,7 @@ Then use `mode=hybrid` or `mode=abstractive` in API requests to route through th
 │   └── ci.yml                lint + test on push (GitHub Actions)
 │
 ├── Dockerfile                multi-stage build for the API
-├── docker-compose.yml        single-service local deploy
-└── PLANS.md                  original upgrade roadmap (historical reference)
+└── docker-compose.yml        single-service local deploy
 ```
 
 ---
