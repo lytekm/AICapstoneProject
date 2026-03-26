@@ -4,9 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from src.article_ranker import ArticleRanker, RankedArticle, _feedback_score, _keyword_score, _topic_score
+from src.article_ranker import (
+    ArticleRanker,
+    RankedArticle,
+    _feedback_score,
+    _keyword_score,
+    _topic_score,
+)
 from src.user_profile import UserProfile
-
 
 # ---------------------------------------------------------------------------
 # Scoring helpers

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from src.user_profile import ProfileStore, UserProfile, _profile_from_dict
-
 
 # ---------------------------------------------------------------------------
 # UserProfile dataclass
@@ -144,7 +144,7 @@ class TestProfileStore:
             UserProfile(user_id="demo", preferred_topics=["AI"], default_persona="technical")
         )
 
-        raw = json.loads(open(path, encoding="utf-8").read())
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
         assert "demo" in raw
         assert raw["demo"]["default_persona"] == "technical"
 

@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
-from src.feedback import FeedbackEntry, FeedbackStore, apply_feedback, _LIKE_DELTA, _DISLIKE_DELTA
+from src.feedback import (
+    _DISLIKE_DELTA,
+    _LIKE_DELTA,
+    FeedbackEntry,
+    FeedbackStore,
+    apply_feedback,
+)
 from src.user_profile import UserProfile
-
 
 # ---------------------------------------------------------------------------
 # FeedbackEntry

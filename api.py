@@ -18,8 +18,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from src.article_ranker import ArticleRanker
+from src.feedback import FeedbackEntry, FeedbackStore, apply_feedback
 from src.personas import PERSONAS
 from src.pipeline import SummarizationPipeline
+from src.user_profile import ProfileStore, UserProfile
 
 # ----------------------------
 # App setup
@@ -39,6 +42,9 @@ MIN_TEXT_CHARS = 200
 REQUEST_TIMEOUT_SEC = 20
 
 pipeline = SummarizationPipeline()
+profile_store = ProfileStore()
+feedback_store = FeedbackStore()
+article_ranker = ArticleRanker()
 
 
 # ----------------------------
@@ -142,9 +148,14 @@ def summarize(data: dict[str, Any]) -> dict[str, Any]:
     if not url:
         raise HTTPException(status_code=400, detail="Missing 'url' in request body.")
 
+    # if a user_id is provided, load their profile defaults
+    # explicit params in the request always override profile defaults
+    user_id = (data.get("user_id") or "").strip()
+    profile = profile_store.get(user_id) if user_id else None
+
     mode = str(data.get("mode", "extractive")).strip().lower()
-    persona = str(data.get("persona", "default")).strip().lower()
-    length = str(data.get("length", "standard")).strip().lower()
+    persona = str(data.get("persona") or (profile.default_persona if profile else "default")).strip().lower()
+    length = str(data.get("length") or (profile.default_length if profile else "standard")).strip().lower()
     k = _parse_k(data.get("k", DEFAULT_K))
 
     # Validate persona early
@@ -231,3 +242,124 @@ def summarize_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ----------------------------
+# User profile endpoints
+# ----------------------------
+@app.post("/api/user/preferences")
+def save_user_preferences(data: dict[str, Any]) -> dict[str, Any]:
+    """Create or update a user profile.
+
+    Expects: {"user_id": "...", "preferred_topics": [...], "keywords": [...],
+              "default_persona": "...", "default_length": "..."}
+    """
+    user_id = (data.get("user_id") or "").strip()
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing 'user_id'.")
+
+    # validate persona if provided
+    persona = str(data.get("default_persona", "default")).strip().lower()
+    if persona not in PERSONAS:
+        valid = ", ".join(sorted(PERSONAS.keys()))
+        raise HTTPException(status_code=400, detail=f"Unknown persona '{persona}'. Valid: {valid}")
+
+    profile = UserProfile(
+        user_id=user_id,
+        preferred_topics=data.get("preferred_topics", []),
+        keywords=data.get("keywords", []),
+        default_persona=persona,
+        default_length=str(data.get("default_length", "standard")).strip().lower(),
+    )
+
+    # carry over existing feedback weights if the user already had a profile
+    existing = profile_store.get(user_id)
+    if existing:
+        profile.feedback_weights = existing.feedback_weights
+
+    profile_store.save(profile)
+    return {"status": "saved", "user_id": user_id}
+
+
+@app.get("/api/user/preferences/{user_id}")
+def get_user_preferences(user_id: str) -> dict[str, Any]:
+    """Retrieve a user's stored preferences."""
+    profile = profile_store.get(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"No profile found for '{user_id}'.")
+    return {
+        "user_id": profile.user_id,
+        "preferred_topics": profile.preferred_topics,
+        "keywords": profile.keywords,
+        "default_persona": profile.default_persona,
+        "default_length": profile.default_length,
+        "feedback_weights": profile.feedback_weights,
+    }
+
+
+@app.post("/api/user/feedback")
+def record_feedback(data: dict[str, Any]) -> dict[str, str]:
+    """Record a like or dislike on a summary.
+
+    Expects: {"user_id": "...", "article_title": "...", "persona": "...",
+              "mode": "...", "liked": true/false}
+    """
+    user_id = (data.get("user_id") or "").strip()
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing 'user_id'.")
+
+    article_title = (data.get("article_title") or "").strip()
+    if not article_title:
+        raise HTTPException(status_code=400, detail="Missing 'article_title'.")
+
+    liked = data.get("liked")
+    if liked is None:
+        raise HTTPException(status_code=400, detail="Missing 'liked' (true/false).")
+
+    entry = FeedbackEntry(
+        user_id=user_id,
+        article_title=article_title,
+        persona=str(data.get("persona", "default")),
+        mode=str(data.get("mode", "extractive")),
+        liked=bool(liked),
+    )
+    feedback_store.record(entry)
+
+    # apply feedback to the user's profile if they have one
+    profile = profile_store.get(user_id)
+    if profile:
+        updated = apply_feedback(profile, [entry])
+        profile_store.save(updated)
+
+    return {"status": "recorded"}
+
+
+@app.get("/api/articles/personalized")
+def get_personalized_articles(
+    user_id: str = Query(..., description="User ID for personalized ranking"),
+) -> list[dict[str, Any]]:
+    """Fetch and rank articles based on a user's preferences."""
+    profile = profile_store.get(user_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"No profile found for '{user_id}'.")
+
+    # fetch articles the same way as the regular endpoint
+    try:
+        request = urllib.request.Request(DEFAULT_RSS, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SEC) as response:
+            feed = feedparser.parse(response.read())
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Could not fetch RSS feed: {e}") from e
+
+    articles = [{"title": e.title, "link": e.link} for e in feed.entries[:10]]
+    ranked = article_ranker.rank(articles, profile)
+
+    return [
+        {
+            "title": r.title,
+            "link": r.link,
+            "score": r.score,
+            "match_reasons": r.match_reasons,
+        }
+        for r in ranked
+    ]
