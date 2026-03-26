@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-03-26T16:23:08.939866",
+  "samples": 50,
+  "seed": 42,
+  "k": 5,
+  "model": "TextRankMMR (default config)",
+  "scores": {
+    "rouge1_f": 0.3241965369990031,
+    "rouge2_f": 0.12457478502756708,
+    "rougeL_f": 0.20781404029299952
+  }
+}
