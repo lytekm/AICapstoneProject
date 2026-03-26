@@ -1,0 +1,16 @@
+# Base kustomization -- Flux applies this from the repo.
+# All resources in a single namespace, no overlays needed
+# since the Talos cluster has one environment.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: summarizer
+
+resources:
+  - namespace.yaml
+  - vllm-pvc.yaml
+  - vllm-deployment.yaml
+  - vllm-service.yaml
+  - api-deployment.yaml
+  - api-service.yaml
+  - ingress.yaml

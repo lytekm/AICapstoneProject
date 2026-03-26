@@ -1,0 +1,18 @@
+# ClusterIP service -- the API deployment talks to vLLM via this.
+# No external exposure needed; the API is the public-facing layer.
+apiVersion: v1
+kind: Service
+metadata:
+  name: vllm
+  namespace: summarizer
+  labels:
+    app: vllm
+spec:
+  type: ClusterIP
+  selector:
+    app: vllm
+  ports:
+    - port: 8000
+      targetPort: http
+      protocol: TCP
+      name: http

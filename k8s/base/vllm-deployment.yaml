@@ -1,0 +1,83 @@
+# vLLM deployment -- serves Mistral-7B-Instruct-v0.3 on the RTX 3090.
+# Requires the NVIDIA device plugin to be running on the node.
+# The model downloads on first start (~14GB), then stays cached in the PVC.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm
+  namespace: summarizer
+  labels:
+    app: vllm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vllm
+  template:
+    metadata:
+      labels:
+        app: vllm
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          args:
+            - "--model"
+            - "mistralai/Mistral-7B-Instruct-v0.3"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            # max context window that fits in 24GB VRAM with 7B params
+            - "--max-model-len"
+            - "24576"
+            - "--dtype"
+            - "auto"
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          resources:
+            limits:
+              # request the full RTX 3090
+              nvidia.com/gpu: "1"
+            requests:
+              cpu: "2"
+              memory: "8Gi"
+              nvidia.com/gpu: "1"
+          # vLLM takes ~45s to load the model into GPU memory
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 30
+          volumeMounts:
+            - name: model-cache
+              mountPath: /root/.cache/huggingface
+          env:
+            - name: HUGGING_FACE_HUB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: token
+                  optional: true
+      volumes:
+        - name: model-cache
+          persistentVolumeClaim:
+            claimName: vllm-model-cache
+      # prefer the GPU node but don't hard-require it
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule

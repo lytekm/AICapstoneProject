@@ -1,0 +1,23 @@
+# ServiceMonitor for vLLM.
+# vLLM exposes Prometheus metrics at /metrics out of the box:
+#   - vllm:num_requests_running (current inflight)
+#   - vllm:num_requests_waiting (queued)
+#   - vllm:gpu_cache_usage_perc (KV cache pressure)
+#   - vllm:avg_generation_throughput_toks_per_s
+#   - vllm:avg_prompt_throughput_toks_per_s
+# Prometheus scrapes every 15 seconds.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: vllm
+  namespace: summarizer
+  labels:
+    app: vllm
+spec:
+  selector:
+    matchLabels:
+      app: vllm
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
