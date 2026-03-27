@@ -17,13 +17,19 @@ class TestMockAbstractor:
         result = mock_abstractor.generate("system", "- A sentence.")
         assert "[Mock Summary]" in result
 
-    def test_picks_up_to_three_sentences(self, mock_abstractor):
+    def test_respects_sentence_budget(self, mock_abstractor):
         prompt = "- One.\n- Two.\n- Three.\n- Four.\n- Five."
-        result = mock_abstractor.generate("system", prompt)
+        result = mock_abstractor.generate("system", prompt, max_tokens=512)
         assert "One." in result
         assert "Two." in result
         assert "Three." in result
         assert "Four." not in result
+
+    def test_detailed_budget_can_include_four_sentences(self, mock_abstractor):
+        prompt = "- One.\n- Two.\n- Three.\n- Four.\n- Five."
+        result = mock_abstractor.generate("system", prompt, max_tokens=1024)
+        assert "Four." in result
+        assert "Five." not in result
 
     def test_handles_empty_prompt(self, mock_abstractor):
         result = mock_abstractor.generate("system", "")
@@ -41,6 +47,35 @@ class TestMockAbstractor:
         r1 = mock_abstractor.generate("sys", prompt)
         r2 = mock_abstractor.generate("sys", prompt)
         assert r1 == r2
+
+    def test_persona_style_affects_mock_output(self, mock_abstractor):
+        prompt = "- One.\n- Two."
+        technical = mock_abstractor.generate(
+            "You are a technical writer.", prompt, max_tokens=256
+        )
+        executive = mock_abstractor.generate(
+            "You are a business analyst.", prompt, max_tokens=256
+        )
+        casual = mock_abstractor.generate(
+            "You are a friendly writer.", prompt, max_tokens=256
+        )
+        academic = mock_abstractor.generate(
+            "You are an academic researcher.", prompt, max_tokens=256
+        )
+
+        assert "Technical Summary:" in technical
+        assert "Executive Brief:" in executive
+        assert "Plain-language Summary:" in casual
+        assert "Academic Summary:" in academic
+
+    def test_length_budget_affects_mock_output(self, mock_abstractor):
+        prompt = "- One.\n- Two.\n- Three.\n- Four."
+        brief = mock_abstractor.generate("You are a friendly writer.", prompt, max_tokens=128)
+        detailed = mock_abstractor.generate("You are a friendly writer.", prompt, max_tokens=1024)
+
+        assert "One." in brief
+        assert "Two." not in brief
+        assert "Four." in detailed
 
 
 class TestAbstractorConfig:

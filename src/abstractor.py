@@ -73,9 +73,56 @@ class AbstractorBase(ABC):
 class MockAbstractor(AbstractorBase):
     """Deterministic mock for testing and offline development.
 
-    Strips bullet-point markers from the prompt, grabs up to 3 sentences,
-    and prefixes with "[Mock Summary]". No randomness, no network calls.
+    Strips bullet-point markers from the prompt and applies lightweight
+    deterministic heuristics so persona and length controls have visible
+    effects even without a live LLM. No randomness, no network calls.
     """
+
+    def _extract_sentences(self, user_prompt: str) -> list[str]:
+        lines = user_prompt.strip().splitlines()
+        sentences: list[str] = []
+        for line in lines:
+            cleaned = re.sub(r"^-\s*", "", line.strip())
+            if cleaned and not cleaned.startswith("Summarize"):
+                sentences.append(cleaned)
+        return sentences
+
+    def _sentence_budget(self, max_tokens: int) -> int:
+        """Approximate output length from the token budget."""
+        if max_tokens <= 150:
+            return 1
+        if max_tokens <= 320:
+            return 2
+        if max_tokens <= 640:
+            return 3
+        return 4
+
+    def _persona_style(self, system_prompt: str) -> str:
+        lower = system_prompt.lower()
+        if "business analyst" in lower:
+            return "executive"
+        if "academic researcher" in lower:
+            return "academic"
+        if "technical writer" in lower:
+            return "technical"
+        return "casual"
+
+    def _format_mock_summary(self, persona_style: str, sentences: list[str]) -> str:
+        if persona_style == "executive":
+            body = " ".join(f"- {sentence}" for sentence in sentences)
+            return "[Mock Summary] Executive Brief: " + body
+        if persona_style == "technical":
+            body = " ".join(sentences)
+            return "[Mock Summary] Technical Summary: " + body
+        if persona_style == "academic":
+            body = " ".join(sentences)
+            return (
+                "[Mock Summary] Academic Summary: "
+                + body
+                + " This interpretation remains limited to the extracted evidence."
+            )
+        body = " ".join(sentences)
+        return "[Mock Summary] Plain-language Summary: " + body
 
     def generate(
         self,
@@ -83,18 +130,11 @@ class MockAbstractor(AbstractorBase):
         user_prompt: str,
         max_tokens: int = 512,
     ) -> str:
-        lines = user_prompt.strip().splitlines()
-        sentences: list[str] = []
-        for line in lines:
-            # the prompt formats sentences as "- sentence here"
-            cleaned = re.sub(r"^-\s*", "", line.strip())
-            # skip the instruction line itself
-            if cleaned and not cleaned.startswith("Summarize"):
-                sentences.append(cleaned)
-
-        # cap at 3 so mock output stays short and predictable
-        picked = sentences[:3] if sentences else ["No content provided."]
-        return "[Mock Summary] " + " ".join(picked)
+        sentences = self._extract_sentences(user_prompt)
+        budget = self._sentence_budget(max_tokens)
+        picked = sentences[:budget] if sentences else ["No content provided."]
+        persona_style = self._persona_style(system_prompt)
+        return self._format_mock_summary(persona_style, picked)
 
 
 class Abstractor(AbstractorBase):

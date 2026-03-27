@@ -92,6 +92,22 @@ class TestAbstractiveMode:
         result = pipe.run(SAMPLE_ARTICLE, mode="abstractive", k=3)
         assert len(result.extractive_sentences) > 0
 
+    def test_persona_changes_mock_output(self):
+        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        technical = pipe.run(SAMPLE_ARTICLE, mode="abstractive", persona="technical")
+        executive = pipe.run(SAMPLE_ARTICLE, mode="abstractive", persona="executive")
+
+        assert "Technical Summary:" in technical.summary
+        assert "Executive Brief:" in executive.summary
+        assert technical.summary != executive.summary
+
+    def test_length_changes_mock_output(self):
+        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        brief = pipe.run(SAMPLE_ARTICLE, mode="abstractive", persona="casual", length="brief")
+        detailed = pipe.run(SAMPLE_ARTICLE, mode="abstractive", persona="casual", length="detailed")
+
+        assert brief.summary != detailed.summary
+
 
 class TestHybridMode:
     def test_all_three_stages_run(self):

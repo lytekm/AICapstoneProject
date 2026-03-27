@@ -10,7 +10,7 @@ import os
 import urllib.request
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import feedparser
 import trafilatura
@@ -126,13 +126,13 @@ def _build_summarize_response(result: Any, mode: str) -> dict[str, Any]:
         if mode == "hybrid" and result.confidence is not None
         else []
     )
-    return SummarizeResponse(
+    return cast(dict[str, Any], SummarizeResponse(
         summary=result.summary,
         mode=result.mode,
         persona=result.persona,
         confidence=confidence,
         flagged_entities=flagged_entities,
-    ).model_dump()
+    ).model_dump())
 
 
 # ----------------------------
