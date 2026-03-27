@@ -133,6 +133,43 @@ flowchart TB
 
 ---
 
+## Professor-Facing QA Summary
+
+### Targeted Verification Hooks
+
+These commands were used to demonstrate that the algorithm and verification layer behave as intended.
+
+| Objective | Command | Expected evidence |
+| --- | --- | --- |
+| Full regression pass | `PYTHONPATH=. pytest tests -q` | `244 passed` |
+| Extractive length scales effective sentence budget | `PYTHONPATH=. pytest tests/test_summarization_pipeline.py -q -k "length_scales_effective_k"` | Confirms `brief` reduces effective `k` and `detailed` increases it |
+| Abstractive mode now exposes verifier metadata | `PYTHONPATH=. pytest tests/test_summarization_pipeline.py -q -k "confidence_from_verifier_when_available or done_event_has_confidence_when_verifier_available"` | Confirms `abstractive` can return `confidence` and `flagged_entities` |
+| Verifier filters citation/reference noise | `PYTHONPATH=. pytest tests/test_verifier.py -q -k "citation_scaffolding_is_filtered or sanitize_text_removes_reference_scaffolding"` | Confirms references, URLs, and scaffolding are stripped before entity comparison |
+| Real LLM path honors configured model name | `PYTHONPATH=. pytest tests/test_abstractor.py -q -k "default_model_from_env"` | Confirms runtime reads `VLLM_MODEL` from the environment |
+
+### Recommended Interpretation
+
+For the report or presentation, describe `confidence` as:
+
+- a grounding or consistency signal
+- not a truth score
+- not an overall summary quality score
+
+Describe `flagged_entities` as:
+
+- entities or details the verifier could not ground in the source
+- inspection hints, not proof of hallucination
+
+Recommended wording:
+
+> The verifier provides a lightweight grounding signal rather than a factual guarantee. Its confidence score reflects source-entity consistency, while flagged entities indicate details that warrant manual inspection.
+
+Recommended limitation statement:
+
+> Because the verifier is based on filtered spaCy NER matching rather than full semantic fact-checking, its outputs should be interpreted as QA guidance rather than definitive truth judgments.
+
+---
+
 ## Roadmap
 
 ### Milestone 1: Foundation + Pipeline + Streaming
