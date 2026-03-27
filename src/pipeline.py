@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from math import ceil
 from typing import Any
 
 from src.abstractor import AbstractorBase, create_abstractor
-from src.personas import format_prompt, get_persona
+from src.personas import LENGTH_MULTIPLIERS, format_prompt, get_persona
 from src.summarizer_model import TextRankMMRSummarizer
 from src.verifier import NERVerifier
 
@@ -71,13 +72,18 @@ class SummarizationPipeline:
         # scale the token budget based on requested length
         max_tokens = int(
             persona.max_tokens_hint
-            * {"brief": 0.5, "standard": 1.0, "detailed": 2.0}.get(length, 1.0)
+            * LENGTH_MULTIPLIERS.get(length, 1.0)
         )
         return self.abstractor.generate(
             system_prompt=persona.system_prompt,
             user_prompt=user_prompt,
             max_tokens=max_tokens,
         )
+
+    def _effective_extractive_k(self, k: int, length: str) -> int:
+        """Scale the extractive sentence budget using the selected length."""
+        multiplier = LENGTH_MULTIPLIERS.get(length, 1.0)
+        return max(1, min(20, ceil(k * multiplier)))
 
     def _verify(self, source_text: str, summary_text: str) -> tuple[float | None, list[str]]:
         """Run NER verification when available and return a normalized result."""
@@ -111,17 +117,18 @@ class SummarizationPipeline:
         get_persona(persona)
 
         if mode == "extractive":
-            return self._run_extractive(text, persona, k)
+            return self._run_extractive(text, persona, length, k)
         elif mode == "abstractive":
             return self._run_abstractive(text, persona, length, k)
         else:
             return self._run_hybrid(text, persona, length, k)
 
     def _run_extractive(
-        self, text: str, persona: str, k: int
+        self, text: str, persona: str, length: str, k: int
     ) -> PipelineResult:
         """Pure extractive: just return the top-k sentences as-is."""
-        result = self._extract(text, k)
+        effective_k = self._effective_extractive_k(k, length)
+        result = self._extract(text, effective_k)
         selected = result.get("selected_indices", [])
         sentences = result.get("sentences", [])
         # bounds-check in case the article had fewer sentences than k
@@ -132,6 +139,7 @@ class SummarizationPipeline:
             mode="extractive",
             persona=persona,
             extractive_sentences=extracted,
+            metadata={"requested_k": k, "effective_k": effective_k, "length": length},
         )
 
     def _run_abstractive(
@@ -160,10 +168,13 @@ class SummarizationPipeline:
                 metadata={"abstractor_error": str(exc), "fallback": "extractive"},
             )
 
+        confidence, flagged = self._verify(text, summary)
         return PipelineResult(
             summary=summary,
             mode="abstractive",
             persona=persona,
+            confidence=confidence,
+            flagged_entities=flagged,
             extractive_sentences=extracted,
         )
 
@@ -239,7 +250,8 @@ class SummarizationPipeline:
             return
 
         # extraction is always the first step, even for streaming
-        result = self._extract(text, k)
+        effective_k = self._effective_extractive_k(k, length) if mode == "extractive" else k
+        result = self._extract(text, effective_k)
         selected = result.get("selected_indices", [])
         sentences = result.get("sentences", [])
         extracted = [sentences[i] for i in selected if i < len(sentences)]
@@ -252,6 +264,7 @@ class SummarizationPipeline:
                 "persona": persona,
                 "confidence": None,
                 "flagged_entities": [],
+                "effective_k": effective_k,
             })
             return
 
@@ -263,7 +276,7 @@ class SummarizationPipeline:
         user_prompt = format_prompt(persona_obj, extracted, length)
         max_tokens = int(
             persona_obj.max_tokens_hint
-            * {"brief": 0.5, "standard": 1.0, "detailed": 2.0}.get(length, 1.0)
+            * LENGTH_MULTIPLIERS.get(length, 1.0)
         )
 
         # accumulate the full text so we can verify it after streaming
@@ -290,10 +303,10 @@ class SummarizationPipeline:
             })
             return
 
-        # run NER verification on the complete streamed output (hybrid only)
+        # run NER verification on the complete streamed output when supported
         confidence: float | None = None
         flagged: list[str] = []
-        if mode == "hybrid":
+        if mode in {"abstractive", "hybrid"}:
             confidence, flagged = self._verify(text, full_text)
 
         yield _sse("done", {

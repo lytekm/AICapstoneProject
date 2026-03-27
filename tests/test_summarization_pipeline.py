@@ -64,6 +64,15 @@ class TestExtractiveMode:
         result = pipe.run(SAMPLE_ARTICLE, mode="extractive", k=3)
         assert len(result.extractive_sentences) > 0
 
+    def test_length_scales_effective_k(self):
+        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        brief = pipe.run(SAMPLE_ARTICLE, mode="extractive", length="brief", k=4)
+        detailed = pipe.run(SAMPLE_ARTICLE, mode="extractive", length="detailed", k=4)
+
+        assert brief.metadata["effective_k"] == 2
+        assert detailed.metadata["effective_k"] == 8
+        assert len(detailed.extractive_sentences) >= len(brief.extractive_sentences)
+
 
 class TestAbstractiveMode:
     def test_calls_abstractor(self):
@@ -107,6 +116,26 @@ class TestAbstractiveMode:
         detailed = pipe.run(SAMPLE_ARTICLE, mode="abstractive", persona="casual", length="detailed")
 
         assert brief.summary != detailed.summary
+
+    def test_confidence_from_verifier_when_available(self):
+        pipe = SummarizationPipeline(
+            abstractor=MockAbstractor(),
+            verifier=AvailableVerifier(confidence=0.61, flagged_entities=["year"]),
+        )
+        result = pipe.run(SAMPLE_ARTICLE, mode="abstractive")
+
+        assert result.confidence == pytest.approx(0.61)
+        assert result.flagged_entities == ["year"]
+
+    def test_confidence_null_when_verifier_unavailable(self):
+        pipe = SummarizationPipeline(
+            abstractor=MockAbstractor(),
+            verifier=UnavailableVerifier(),
+        )
+        result = pipe.run(SAMPLE_ARTICLE, mode="abstractive")
+
+        assert result.confidence is None
+        assert result.flagged_entities == []
 
 
 class TestHybridMode:
@@ -206,6 +235,14 @@ class TestStreamExtractiveMode:
         assert len(data["summary"]) > 0
         assert data["mode"] == "extractive"
 
+    def test_done_event_contains_effective_k(self):
+        import json
+        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        events = list(pipe.run_stream(SAMPLE_ARTICLE, mode="extractive", length="detailed", k=4))
+        data_line = events[0].split("data: ")[1].split("\n")[0]
+        data = json.loads(data_line)
+        assert data["effective_k"] == 8
+
 
 class TestStreamHybridMode:
     def test_yields_meta_tokens_done(self):
@@ -257,14 +294,31 @@ class TestStreamAbstractiveMode:
         assert event_types[0] == "meta"
         assert event_types[-1] == "done"
 
-    def test_no_confidence_for_abstractive(self):
+    def test_done_event_has_confidence_when_verifier_available(self):
         import json
-        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        pipe = SummarizationPipeline(
+            abstractor=MockAbstractor(),
+            verifier=AvailableVerifier(confidence=0.67, flagged_entities=["source"]),
+        )
+        events = list(pipe.run_stream(SAMPLE_ARTICLE, mode="abstractive", delay=0))
+        done_event = events[-1]
+        data_line = done_event.split("data: ")[1].split("\n")[0]
+        data = json.loads(data_line)
+        assert data["confidence"] == pytest.approx(0.67)
+        assert data["flagged_entities"] == ["source"]
+
+    def test_done_event_has_null_confidence_without_verifier(self):
+        import json
+        pipe = SummarizationPipeline(
+            abstractor=MockAbstractor(),
+            verifier=UnavailableVerifier(),
+        )
         events = list(pipe.run_stream(SAMPLE_ARTICLE, mode="abstractive", delay=0))
         done_event = events[-1]
         data_line = done_event.split("data: ")[1].split("\n")[0]
         data = json.loads(data_line)
         assert data["confidence"] is None
+        assert data["flagged_entities"] == []
 
 
 class TestStreamErrorHandling:

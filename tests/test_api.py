@@ -228,7 +228,7 @@ class TestSummarizeResponseFormat:
     @patch("api.pipeline.run")
     @patch("api._extract_main_text")
     @patch("api._fetch_url")
-    def test_abstractive_response_includes_null_metadata(self, mock_fetch, mock_extract, mock_pipeline_run, client):
+    def test_abstractive_response_preserves_verified_metadata(self, mock_fetch, mock_extract, mock_pipeline_run, client):
         mock_fetch.return_value = "<html>article</html>"
         mock_extract.return_value = MOCK_ARTICLE_TEXT
         mock_pipeline_run.return_value = PipelineResult(
@@ -236,7 +236,7 @@ class TestSummarizeResponseFormat:
             mode="abstractive",
             persona="casual",
             confidence=0.83,
-            flagged_entities=["ignored"],
+            flagged_entities=["year"],
         )
         resp = client.post("/api/summarize", json={
             "url": "https://example.com/article",
@@ -246,8 +246,8 @@ class TestSummarizeResponseFormat:
         assert resp.status_code == 200
         data = resp.json()
         assert data["mode"] == "abstractive"
-        assert data["confidence"] is None
-        assert data["flagged_entities"] == []
+        assert data["confidence"] == pytest.approx(0.83)
+        assert data["flagged_entities"] == ["year"]
 
     @patch("api.pipeline.run")
     @patch("api._extract_main_text")

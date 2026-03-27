@@ -96,6 +96,44 @@ class TestVerify:
         result = verifier.verify(source, summary)
         assert 0.0 <= result.confidence <= 1.0
 
+    def test_citation_scaffolding_is_filtered(self, verifier):
+        if not verifier.available:
+            pytest.skip("spaCy model not installed")
+        source = "The Bank of Canada released a report in Ottawa."
+        summary = (
+            "The Bank of Canada released a report in Ottawa. "
+            "According to Reuters (2024), the release came after new guidance. "
+            "References: Reuters. Retrieved from https://example.com/report"
+        )
+        result = verifier.verify(source, summary)
+        assert "reuters" not in result.flagged_entities
+
+
+class TestVerifierFiltering:
+    def test_sanitize_text_removes_reference_scaffolding(self):
+        raw = (
+            "**Conclusion:** Markets fell.\n"
+            "1. Review exposures.\n"
+            "Retrieved from https://example.com/report\n"
+            "References:\n"
+            "- Reuters (2024).\n"
+        )
+        cleaned = NERVerifier.sanitize_text(raw)
+        assert "References" not in cleaned
+        assert "Retrieved from" not in cleaned
+        assert "https://" not in cleaned
+        assert "1." not in cleaned
+        assert "Review exposures." in cleaned
+
+    def test_should_ignore_dates_and_percentages(self):
+        assert NERVerifier.should_ignore_entity("2024", "DATE") is True
+        assert NERVerifier.should_ignore_entity("2.4%", "PERCENT") is True
+        assert NERVerifier.should_ignore_entity("1", "CARDINAL") is True
+
+    def test_should_keep_named_entities(self):
+        assert NERVerifier.should_ignore_entity("Bank of Canada", "ORG") is False
+        assert NERVerifier.should_ignore_entity("Ottawa", "GPE") is False
+
 
 class TestGracefulFallback:
     def test_unavailable_spacy_returns_full_confidence(self):

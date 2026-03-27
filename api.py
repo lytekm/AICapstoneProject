@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field, StrictBool
 from src.article_ranker import ArticleRanker
 from src.feedback import FeedbackEntry, FeedbackStore, apply_feedback
 from src.personas import PERSONAS
-from src.pipeline import SummarizationPipeline
+from src.pipeline import PipelineResult, SummarizationPipeline
 from src.user_profile import ProfileStore, UserProfile
 
 # ----------------------------
@@ -114,16 +114,16 @@ def _parse_k(value: Any, default: int = DEFAULT_K, k_min: int = 1, k_max: int = 
     return max(k_min, min(k, k_max))
 
 
-def _build_summarize_response(result: Any, mode: str) -> dict[str, Any]:
+def _build_summarize_response(result: PipelineResult) -> dict[str, Any]:
     """Normalize summarize responses so all modes share the same wire shape."""
     confidence = (
         result.confidence
-        if mode == "hybrid" and result.confidence is not None
+        if result.mode != "extractive" and result.confidence is not None
         else None
     )
     flagged_entities = (
         list(result.flagged_entities)
-        if mode == "hybrid" and result.confidence is not None
+        if result.mode != "extractive" and result.confidence is not None
         else []
     )
     return cast(dict[str, Any], SummarizeResponse(
@@ -213,7 +213,7 @@ def summarize(data: dict[str, Any]) -> dict[str, Any]:
     if not result.summary.strip():
         raise HTTPException(status_code=500, detail="Pipeline returned an empty summary.")
 
-    return _build_summarize_response(result, mode)
+    return _build_summarize_response(result)
 
 
 @app.get("/api/summarize/stream")

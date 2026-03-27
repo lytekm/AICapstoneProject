@@ -84,6 +84,11 @@ class TestAbstractorConfig:
             config = AbstractorConfig()
             assert config.base_url == "http://test:9000/v1"
 
+    def test_default_model_from_env(self):
+        with patch.dict("os.environ", {"VLLM_MODEL": "test-model"}):
+            config = AbstractorConfig()
+            assert config.model == "test-model"
+
     def test_default_base_url_fallback(self):
         with patch.dict("os.environ", {}, clear=True):
             config = AbstractorConfig()

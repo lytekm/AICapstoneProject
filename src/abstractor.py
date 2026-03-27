@@ -35,6 +35,10 @@ class AbstractorConfig:
             self.base_url = os.environ.get(
                 "VLLM_BASE_URL", "http://localhost:8000/v1"
             )
+        if self.model == "default":
+            self.model = os.environ.get(
+                "VLLM_MODEL", "mistralai/Mistral-7B-Instruct-v0.3"
+            )
 
 
 class AbstractorBase(ABC):
