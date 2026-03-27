@@ -174,7 +174,7 @@ flowchart TB
   - Tag: `phase-4-complete`
 
 - [x] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring**
-  - [x] SvelteKit frontend: 4 pages, 9 components, 3 reactive stores, all 10 endpoints wired
+  - [x] SvelteKit frontend: 4 pages, 9 components, 3 reactive stores, 9 API routes wired plus the static frontend shell
   - [x] Component-to-API architecture diagram (`docs/svelte-frontend.mmd`)
   - [x] Flux kustomizations for Talos k8s cluster (vLLM, API, services, Cilium ingress)
   - [x] NVIDIA device plugin GPU request for RTX 3090
@@ -413,7 +413,7 @@ curl -s http://localhost:8000/api/health
 │       ├── app.html          HTML shell
 │       ├── app.css           global theme (purple/burgundy dark palette)
 │       ├── lib/
-│       │   ├── api.ts        typed fetch wrappers for all 10 endpoints
+│       │   ├── api.ts        typed fetch wrappers for the backend routes
 │       │   ├── types.ts      shared TypeScript interfaces
 │       │   ├── stores/       reactive state (user, articles, summary)
 │       │   └── components/   9 shared Svelte components
@@ -646,6 +646,15 @@ Phase 5 will add Flux manifests that deploy the API alongside vLLM in the same c
 
 The dual-metric approach (ROUGE for lexical, BERTScore for semantic) gives a more complete picture of summary quality.
 
+### QA Stabilization Notes
+
+The first stabilization pass is documented in [docs/qa-audit.md](docs/qa-audit.md). It records the current symptom -> root cause -> fix map for the `rouge-one` checkout and separates real defects from deliberate limitations.
+
+- Contract fixes were prioritized first: API routing, response shape, confidence semantics, and signed-in feed fallback.
+- The pass was verified with targeted backend regression tests plus `svelte-check` and a production Svelte build.
+- Mock-mode persona and length behavior remain a known limitation for CI and offline runs.
+- Multi-replica personalization and comparative evaluation replay are documented as deferred work, not hidden.
+
 ---
 
 ## Current Numbers
@@ -656,7 +665,7 @@ The dual-metric approach (ROUGE for lexical, BERTScore for semantic) gives a mor
 | Coverage | 91% |
 | Pipeline modes | 3 (extractive, abstractive, hybrid) |
 | Personas | 5 (default, technical, casual, executive, academic) |
-| API endpoints | 10 |
+| API routes | 9 |
 | Evaluation metrics | ROUGE-1/2/L + BERTScore (P/R/F1) |
 | LLM backend | Mistral-7B-Instruct-v0.3 on RTX 3090 via vLLM |
 | Frontend | SvelteKit (4 pages, 9 components, SSE streaming) |
