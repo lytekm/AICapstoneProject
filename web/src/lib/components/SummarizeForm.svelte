@@ -1,6 +1,8 @@
 <!--
   Summarization control panel.
-  Dropdowns for mode, persona, length, and sentence count (k).
+  Dropdowns for mode, persona, and length.
+  The UI keeps a fixed extraction budget internally so users are not
+  asked to manage both "length" and "k" in the same screen.
   Handles both streaming and non-streaming requests based on mode.
   The "Summarize" button is disabled until an article is selected.
 -->
@@ -16,12 +18,12 @@
 
 	/** Whether to use SSE streaming (auto-enabled for abstractive/hybrid) */
 	export let useStreaming = true;
+	const DEFAULT_K = 5;
 
 	let personas: string[] = ['default'];
 	let mode = 'hybrid';
 	let persona = 'default';
 	let length = 'standard';
-	let k = 5;
 	let personaDirty = false;
 	let lengthDirty = false;
 	let appliedProfileUserId = '';
@@ -62,7 +64,7 @@
 
 		const payload = {
 			url: selectedArticle.link,
-			k,
+			k: DEFAULT_K,
 			mode,
 			persona,
 			length,
@@ -76,7 +78,7 @@
 		} else {
 			runSummarizeStream({
 				url: selectedArticle.link,
-				k,
+				k: DEFAULT_K,
 				mode,
 				persona,
 				length,
@@ -115,11 +117,6 @@
 				{/each}
 			</select>
 		</label>
-
-		<label>
-			<span class="label-text">Sentences (k)</span>
-			<input type="number" bind:value={k} min={1} max={10} />
-		</label>
 	</div>
 
 	<div class="form-footer">
@@ -147,11 +144,11 @@
 
 	<div class="mode-hint">
 		{#if mode === 'extractive'}
-			Selects the top-k sentences using TextRank + MMR. No LLM required.
+			Selects top evidence sentences using TextRank + MMR. Length now scales the effective sentence budget. No LLM required.
 		{:else if mode === 'abstractive'}
-			Extracts key sentences, then rewrites them with the LLM in the selected persona style.
+			Extracts a fixed evidence set, then rewrites it with the LLM in the selected persona style.
 		{:else}
-			Full pipeline: extract, abstract with LLM, then verify with NER for hallucination detection.
+			Full pipeline: extract, abstract with LLM, then verify with NER for grounding issues.
 		{/if}
 	</div>
 </div>
@@ -168,7 +165,7 @@
 	label { display: flex; flex-direction: column; gap: 4px; }
 	.label-text { font-size: 12px; color: var(--muted); font-weight: 500; }
 
-	select, input[type="number"] { width: 100%; }
+	select { width: 100%; }
 
 	.form-footer {
 		display: flex;

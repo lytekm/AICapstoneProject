@@ -125,6 +125,7 @@ flowchart TB
   - `brief` -> `ceil(k * 0.5)`
   - `standard` -> `k`
   - `detailed` -> `ceil(k * 2.0)`
+- The web UI now keeps `k=5` fixed so users are not asked to tune both `length` and `k` in the same screen. The API still accepts `k` directly for experiments and evaluation scripts.
 - **Abstractive and hybrid modes** use the persona prompt to shape the rewrite style. Length scales the LLM token budget, not the source article itself.
 - **Confidence is not summary quality.** It is a grounding score from the verifier. Higher means more of the summary's kept named entities were also found in the source after filtering and normalization.
 - **Flagged entities** are summary entities the verifier could not ground in the source after filtering out common noise such as dates, percentages, numbered bullets, URLs, and citation scaffolding.
@@ -238,10 +239,28 @@ python -m nltk.downloader punkt punkt_tab
 
 ```bash
 make test
-# expected: 223 passed, coverage >= 91%
+# expected: 244 passed, coverage >= 91%
 
 make lint
 # expected: ruff reports 0 issues, mypy reports 0 errors
+```
+
+### 2b. Demo hooks for algorithm behavior and grounding
+
+Use these shorter commands when you want to demonstrate a specific claim without running the entire suite.
+
+```bash
+# extractive length now changes the effective sentence budget
+PYTHONPATH=. pytest tests/test_summarization_pipeline.py -q -k "length_scales_effective_k"
+
+# abstractive mode now surfaces verifier output when verification is available
+PYTHONPATH=. pytest tests/test_summarization_pipeline.py -q -k "confidence_from_verifier_when_available or done_event_has_confidence_when_verifier_available"
+
+# verifier filters citation scaffolding instead of treating it as a groundedness failure
+PYTHONPATH=. pytest tests/test_verifier.py -q -k "citation_scaffolding_is_filtered or sanitize_text_removes_reference_scaffolding"
+
+# real LLM path now honors the configured VLLM model name
+PYTHONPATH=. pytest tests/test_abstractor.py -q -k "default_model_from_env"
 ```
 
 ### 3. Start the API (mock mode, no LLM needed)
@@ -254,6 +273,13 @@ make dev
 Verify in a second terminal:
 
 ```bash
+ARTICLE_URL=$(curl -s http://localhost:8000/api/articles | python - <<'PY'
+import json, sys
+articles = json.load(sys.stdin)
+print(articles[0]["link"])
+PY
+)
+
 # health check
 curl -s http://localhost:8000/api/health
 # expected: {"status":"ok"}
@@ -269,16 +295,30 @@ curl -s http://localhost:8000/api/personas
 # extractive summary (works in mock mode)
 curl -s -X POST http://localhost:8000/api/summarize \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.cbc.ca/news","k":3,"mode":"extractive","persona":"default","length":"standard"}' \
+  -d "{\"url\":\"$ARTICLE_URL\",\"k\":5,\"mode\":\"extractive\",\"persona\":\"default\",\"length\":\"standard\"}" \
   | python -m json.tool
 # expected: JSON with summary, mode="extractive", confidence=null, flagged_entities=[]
 
 # mock abstractive summary (uses MockAbstractor, no real LLM)
 curl -s -X POST http://localhost:8000/api/summarize \
   -H "Content-Type: application/json" \
-  -d '{"url":"https://www.cbc.ca/news","k":3,"mode":"hybrid","persona":"executive","length":"brief"}' \
+  -d "{\"url\":\"$ARTICLE_URL\",\"k\":5,\"mode\":\"hybrid\",\"persona\":\"executive\",\"length\":\"brief\"}" \
   | python -m json.tool
 # expected: summary prefixed with "[Mock Summary]" plus verifier confidence/flagged_entities when spaCy is available
+
+# extractive length demo: same base k, different effective sentence budget
+curl -s "http://localhost:8000/api/summarize/stream?url=$ARTICLE_URL&k=5&mode=extractive&persona=default&length=brief"
+# expected: done event includes "effective_k": 3
+
+curl -s "http://localhost:8000/api/summarize/stream?url=$ARTICLE_URL&k=5&mode=extractive&persona=default&length=detailed"
+# expected: done event includes "effective_k": 10
+
+# grounding demo: abstractive mode now returns verifier metadata too
+curl -s -X POST http://localhost:8000/api/summarize \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"$ARTICLE_URL\",\"k\":5,\"mode\":\"abstractive\",\"persona\":\"technical\",\"length\":\"detailed\"}" \
+  | python -m json.tool
+# expected: JSON includes confidence (0.0-1.0 or null if spaCy unavailable) and flagged_entities
 ```
 
 ### 4. Test user profile endpoints
@@ -358,9 +398,9 @@ npm run dev          # starts on http://localhost:5173
 
 Open `http://localhost:5173` and verify:
 - **Dashboard** (`/`): article list loads, clicking an article highlights it, summarize button works
-- **Summarize** (`/summarize`): all controls (mode, persona, length, k) functional, streaming shows blinking cursor
+- **Summarize** (`/summarize`): mode, persona, and length controls are functional, streaming shows blinking cursor, and the UI uses a fixed default `k=5`
 - **Profile** (`/profile`): sign in via navbar, save preferences, feedback weights display
-- **Compare** (`/compare`): select article, pick two configs, click Compare, results show side by side
+- **Compare** (`/compare`): select article, pick two configs, click Compare, results show side by side with the default `k=5`
 
 ### 9. Production build
 

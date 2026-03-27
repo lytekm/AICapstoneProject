@@ -13,6 +13,7 @@
 	import FlaggedEntityChips from '$lib/components/FlaggedEntityChips.svelte';
 	import { MODES, LENGTHS } from '$lib/types';
 	import type { Article, SummaryResult } from '$lib/types';
+	const DEFAULT_K = 5;
 
 	let personas: string[] = ['default'];
 
@@ -27,7 +28,6 @@
 	let lengthB = 'standard';
 
 	let selectedArticle: Article | null = null;
-	let k = 5;
 
 	let resultA: SummaryResult | null = null;
 	let resultB: SummaryResult | null = null;
@@ -47,7 +47,7 @@
 		resultB = null;
 
 		// run both summarizations concurrently
-		const basePayload = { url: selectedArticle.link, k, user_id: $userId || undefined };
+		const basePayload = { url: selectedArticle.link, k: DEFAULT_K, user_id: $userId || undefined };
 
 		loadingA = true;
 		loadingB = true;
@@ -90,11 +90,6 @@
 				<option value={art}>{art.title}</option>
 			{/each}
 		</select>
-	</label>
-
-	<label class="k-input">
-		<span class="label-text">k</span>
-		<input type="number" bind:value={k} min={1} max={10} />
 	</label>
 
 	<button class="btn" on:click={runComparison} disabled={!selectedArticle || loadingA || loadingB}>
@@ -185,7 +180,6 @@
 	}
 	.article-selector label { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
 	.article-selector select { width: 100%; }
-	.k-input { flex: 0; min-width: 70px !important; }
 	.label-text { font-size: 12px; color: var(--muted); font-weight: 500; }
 
 	.compare-grid {
