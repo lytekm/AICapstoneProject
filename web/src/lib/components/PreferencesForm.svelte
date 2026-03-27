@@ -8,6 +8,7 @@
 	import { onMount } from 'svelte';
 	import { fetchPersonas, saveProfile } from '$lib/api';
 	import { userId, profile, loadProfile } from '$lib/stores/user';
+	import { loadArticles } from '$lib/stores/articles';
 	import { LENGTHS } from '$lib/types';
 
 	let personas: string[] = ['default'];
@@ -50,6 +51,7 @@
 				default_length: defaultLength,
 			});
 			await loadProfile();
+			await loadArticles();
 			message = 'Preferences saved.';
 		} catch (err) {
 			message = err instanceof Error ? err.message : 'Save failed';

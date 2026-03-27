@@ -11,18 +11,18 @@
 	let userInput = $userId;
 
 	/** When the user changes their ID, reload profile + articles */
-	function switchUser() {
+	async function switchUser() {
 		const trimmed = userInput.trim();
 		$userId = trimmed;
-		loadProfile();
-		loadArticles();
+		await loadProfile();
+		await loadArticles();
 	}
 
-	function clearUser() {
+	async function clearUser() {
 		userInput = '';
 		$userId = '';
-		loadProfile();
-		loadArticles();
+		await loadProfile();
+		await loadArticles();
 	}
 
 	// highlight the active nav link

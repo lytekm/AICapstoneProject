@@ -27,7 +27,7 @@
 			<div class="meta-chips">
 				<span class="chip">{$summaryResult.mode}</span>
 				<span class="chip">{$summaryResult.persona}</span>
-				<ConfidenceBadge confidence={$summaryResult.confidence} />
+				<ConfidenceBadge confidence={$summaryResult.confidence ?? null} />
 			</div>
 		{/if}
 	</div>
@@ -43,7 +43,7 @@
 		<StreamingText />
 
 		{#if $summaryResult}
-			<FlaggedEntityChips entities={$summaryResult.flagged_entities} />
+			<FlaggedEntityChips entities={$summaryResult.flagged_entities ?? null} />
 
 			<div class="summary-footer">
 				{#if $summaryLatency}

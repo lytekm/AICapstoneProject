@@ -127,11 +127,11 @@
 				<div class="result-meta">
 					<span class="chip">{resultA.mode}</span>
 					<span class="chip">{resultA.persona}</span>
-					<ConfidenceBadge confidence={resultA.confidence} />
+					<ConfidenceBadge confidence={resultA.confidence ?? null} />
 					{#if latencyA}<span class="latency">{latencyA}ms</span>{/if}
 				</div>
 				<p class="result-text">{resultA.summary}</p>
-				<FlaggedEntityChips entities={resultA.flagged_entities} />
+				<FlaggedEntityChips entities={resultA.flagged_entities ?? null} />
 			{:else}
 				<p class="placeholder">Results will appear here.</p>
 			{/if}
@@ -161,11 +161,11 @@
 				<div class="result-meta">
 					<span class="chip">{resultB.mode}</span>
 					<span class="chip">{resultB.persona}</span>
-					<ConfidenceBadge confidence={resultB.confidence} />
+					<ConfidenceBadge confidence={resultB.confidence ?? null} />
 					{#if latencyB}<span class="latency">{latencyB}ms</span>{/if}
 				</div>
 				<p class="result-text">{resultB.summary}</p>
-				<FlaggedEntityChips entities={resultB.flagged_entities} />
+				<FlaggedEntityChips entities={resultB.flagged_entities ?? null} />
 			{:else}
 				<p class="placeholder">Results will appear here.</p>
 			{/if}

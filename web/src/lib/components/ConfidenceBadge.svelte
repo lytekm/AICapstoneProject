@@ -6,11 +6,13 @@
 <script lang="ts">
 	export let confidence: number | null;
 
-	$: label = confidence !== null ? `${(confidence * 100).toFixed(0)}%` : 'N/A';
+	$: numericConfidence =
+		typeof confidence === 'number' && Number.isFinite(confidence) ? confidence : null;
+	$: label = numericConfidence !== null ? `${(numericConfidence * 100).toFixed(0)}%` : 'N/A';
 	$: level =
-		confidence === null ? 'neutral'
-		: confidence >= 0.8 ? 'high'
-		: confidence >= 0.5 ? 'medium'
+		numericConfidence === null ? 'neutral'
+		: numericConfidence >= 0.8 ? 'high'
+		: numericConfidence >= 0.5 ? 'medium'
 		: 'low';
 </script>
 

@@ -8,7 +8,7 @@
 
 import { writable, get } from 'svelte/store';
 import { fetchArticles, fetchPersonalizedArticles } from '$lib/api';
-import { userId } from './user';
+import { profile, userId } from './user';
 import type { Article, RankedArticle } from '$lib/types';
 
 /** The article list (may be plain or ranked depending on login state) */
@@ -30,13 +30,20 @@ export async function loadArticles(): Promise<void> {
 	articlesError.set(null);
 	try {
 		const uid = get(userId);
-		if (uid) {
-			const ranked = await fetchPersonalizedArticles(uid);
-			articles.set(ranked);
-		} else {
-			const raw = await fetchArticles();
-			articles.set(raw);
+		const loadedProfile = get(profile);
+
+		if (uid && loadedProfile?.user_id === uid) {
+			try {
+				const ranked = await fetchPersonalizedArticles(uid);
+				articles.set(ranked);
+				return;
+			} catch {
+				// fall back to the generic feed if personalized ranking fails
+			}
 		}
+
+		const raw = await fetchArticles();
+		articles.set(raw);
 	} catch (err) {
 		articlesError.set(err instanceof Error ? err.message : 'Failed to load articles');
 		articles.set([]);

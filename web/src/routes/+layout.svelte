@@ -12,9 +12,12 @@
 	import { loadArticles } from '$lib/stores/articles';
 
 	onMount(() => {
-		// hydrate stores on first load
-		loadProfile();
-		loadArticles();
+		// hydrate stores on first load in sequence so personalized feeds
+		// only load after the profile lookup has settled
+		void (async () => {
+			await loadProfile();
+			await loadArticles();
+		})();
 	});
 </script>
 

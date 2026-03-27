@@ -63,7 +63,13 @@ export async function runSummarize(payload: SummarizePayload): Promise<void> {
 	try {
 		const result = await summarize(payload);
 		summaryText.set(result.summary);
-		summaryResult.set(result);
+		summaryResult.set({
+			summary: result.summary,
+			mode: result.mode,
+			persona: result.persona,
+			confidence: result.confidence ?? null,
+			flagged_entities: result.flagged_entities ?? null,
+		});
 		summaryLatency.set(Math.round(performance.now() - t0));
 	} catch (err) {
 		summaryError.set(err instanceof Error ? err.message : 'Summarization failed');

@@ -5,7 +5,7 @@
 -->
 <script lang="ts">
 	import { articles, articlesLoading, articlesError, loadArticles } from '$lib/stores/articles';
-	import { isLoggedIn } from '$lib/stores/user';
+	import { isLoggedIn, profile } from '$lib/stores/user';
 	import ArticleCard from './ArticleCard.svelte';
 	import type { Article } from '$lib/types';
 
@@ -20,12 +20,18 @@
 <div class="article-list card">
 	<div class="list-header">
 		<h2>
-			{$isLoggedIn ? 'Your Feed' : 'Latest Articles'}
+			{$isLoggedIn && $profile ? 'Your Feed' : 'Latest Articles'}
 		</h2>
 		<button class="btn btn-sm" on:click={loadArticles} disabled={$articlesLoading}>
 			{$articlesLoading ? 'Loading...' : 'Refresh'}
 		</button>
 	</div>
+
+	{#if $isLoggedIn && !$profile && !$articlesLoading && !$articlesError}
+		<p class="info-msg">
+			No saved profile found for this user yet. Showing the latest articles until preferences are saved.
+		</p>
+	{/if}
 
 	{#if $articlesError}
 		<div class="error-msg">{$articlesError}</div>
@@ -77,6 +83,16 @@
 		border: 1px solid rgba(239, 68, 68, 0.3);
 		color: var(--red);
 		font-size: 13px;
+	}
+
+	.info-msg {
+		padding: 10px 12px;
+		border-radius: var(--radius-sm);
+		background: rgba(124, 58, 237, 0.08);
+		border: 1px solid rgba(124, 58, 237, 0.18);
+		color: var(--muted);
+		font-size: 12px;
+		line-height: 1.5;
 	}
 
 	.empty { color: var(--muted); font-size: 13px; text-align: center; padding: 20px; }

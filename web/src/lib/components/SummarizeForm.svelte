@@ -22,6 +22,9 @@
 	let persona = 'default';
 	let length = 'standard';
 	let k = 5;
+	let personaDirty = false;
+	let lengthDirty = false;
+	let appliedProfileUserId = '';
 
 	onMount(async () => {
 		try {
@@ -32,10 +35,26 @@
 		}
 	});
 
-	// when a profile is loaded, apply its defaults (user can still override)
+	// apply profile defaults once per loaded profile unless the user has
+	// already made a manual choice in this session
 	$: if ($profile) {
-		persona = $profile.default_persona || persona;
-		length = $profile.default_length || length;
+		if ($profile.user_id !== appliedProfileUserId) {
+			appliedProfileUserId = $profile.user_id;
+			personaDirty = false;
+			lengthDirty = false;
+		}
+
+		if (!personaDirty) {
+			persona = $profile.default_persona || persona;
+		}
+
+		if (!lengthDirty) {
+			length = $profile.default_length || length;
+		}
+	} else if (appliedProfileUserId) {
+		appliedProfileUserId = '';
+		personaDirty = false;
+		lengthDirty = false;
 	}
 
 	function handleSummarize() {
@@ -81,7 +100,7 @@
 
 		<label>
 			<span class="label-text">Persona</span>
-			<select bind:value={persona}>
+			<select bind:value={persona} on:change={() => { personaDirty = true; }}>
 				{#each personas as p}
 					<option value={p}>{p}</option>
 				{/each}
@@ -90,7 +109,7 @@
 
 		<label>
 			<span class="label-text">Length</span>
-			<select bind:value={length}>
+			<select bind:value={length} on:change={() => { lengthDirty = true; }}>
 				{#each LENGTHS as l}
 					<option value={l}>{l}</option>
 				{/each}
