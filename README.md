@@ -1,7 +1,7 @@
 # User-Adaptive Summarization
 
 [![CI](https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026/actions/workflows/ci.yml/badge.svg?branch=rouge-one)](https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026/actions)
-![Tests](https://img.shields.io/badge/tests-223_passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-244_passed-brightgreen)
 ![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
 ![Python](https://img.shields.io/badge/python-3.10+-blue)
 
@@ -110,12 +110,25 @@ flowchart TB
 
 - **Three pipeline modes**: extractive (TextRank+MMR only), abstractive (LLM rewrite), hybrid (extract + abstract + verify)
 - **Persona system**: technical, casual, executive, academic profiles shape LLM prompt and output style
-- **Length control**: brief, standard, detailed options that scale the LLM token budget
+- **Length control**: brief, standard, detailed options that scale the LLM token budget and the extractive sentence budget
 - **SSE streaming**: token-by-token delivery for abstractive/hybrid via `EventSource`
-- **NER verification**: spaCy-based factual consistency check with confidence scoring and flagged entity reporting
+- **NER verification**: spaCy-based grounding signal for verified summaries with confidence scoring and flagged entity reporting
 - **Dual evaluation**: ROUGE (lexical overlap) and BERTScore (semantic similarity) on CNN/DailyMail test split
 - **Mock-first design**: runs fully offline with `MockAbstractor`; real LLM opt-in via env vars
 - **CI/CD**: GitHub Actions pipeline with lint (ruff), type check (mypy), and test (pytest) on every push
+
+---
+
+## Control and Verification Semantics
+
+- **Extractive mode** does not rewrite text. Persona does not restyle the selected sentences. Length scales the effective sentence budget from the requested `k`:
+  - `brief` -> `ceil(k * 0.5)`
+  - `standard` -> `k`
+  - `detailed` -> `ceil(k * 2.0)`
+- **Abstractive and hybrid modes** use the persona prompt to shape the rewrite style. Length scales the LLM token budget, not the source article itself.
+- **Confidence is not summary quality.** It is a grounding score from the verifier. Higher means more of the summary's kept named entities were also found in the source after filtering and normalization.
+- **Flagged entities** are summary entities the verifier could not ground in the source after filtering out common noise such as dates, percentages, numbered bullets, URLs, and citation scaffolding.
+- **Hybrid and abstractive can still be wrong.** The verifier is a lightweight heuristic, not a full fact-checker. Treat confidence as a warning signal, not a proof of correctness.
 
 ---
 
@@ -170,7 +183,7 @@ flowchart TB
   - [x] Inline comments pass across all modules
   - [x] Validate real LLM path with vLLM on RTX 3090 (Mistral-7B-Instruct-v0.3, all modes + personas verified)
   - Algorithm upgrades (sentence embeddings, position bias) deferred pending team discussion
-  - 223 tests, 91% coverage
+  - 244 tests, 91% coverage
   - Tag: `phase-4-complete`
 
 - [x] **Phase 5: Kubernetes Deployment, GitOps, Frontend Rewrite, Monitoring**
@@ -258,14 +271,14 @@ curl -s -X POST http://localhost:8000/api/summarize \
   -H "Content-Type: application/json" \
   -d '{"url":"https://www.cbc.ca/news","k":3,"mode":"extractive","persona":"default","length":"standard"}' \
   | python -m json.tool
-# expected: JSON with summary, mode="extractive", confidence=1.0
+# expected: JSON with summary, mode="extractive", confidence=null, flagged_entities=[]
 
 # mock abstractive summary (uses MockAbstractor, no real LLM)
 curl -s -X POST http://localhost:8000/api/summarize \
   -H "Content-Type: application/json" \
   -d '{"url":"https://www.cbc.ca/news","k":3,"mode":"hybrid","persona":"executive","length":"brief"}' \
   | python -m json.tool
-# expected: summary prefixed with "[Mock Summary]", confidence, flagged_entities
+# expected: summary prefixed with "[Mock Summary]" plus verifier confidence/flagged_entities when spaCy is available
 ```
 
 ### 4. Test user profile endpoints
@@ -323,10 +336,13 @@ curl -s http://192.168.2.205:8000/v1/models | python -m json.tool
 # expected: model list including mistralai/Mistral-7B-Instruct-v0.3
 
 # start the API pointing at vLLM
-USE_MOCK_LLM=0 VLLM_BASE_URL=http://192.168.2.205:8000/v1 make dev
+USE_MOCK_LLM=0 \
+VLLM_BASE_URL=http://192.168.2.205:8000/v1 \
+VLLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 \
+make dev
 ```
 
-Then repeat the summarize calls from step 3 with `mode=hybrid` -- you'll get real Mistral-7B output instead of `[Mock Summary]` prefixed text. Confidence scores will be < 1.0 when the NER verifier catches hallucinated entities.
+Then repeat the summarize calls from step 3 with `mode=abstractive` or `mode=hybrid` -- you'll get real Mistral-7B output instead of `[Mock Summary]` prefixed text. Verified outputs now carry `confidence` and `flagged_entities`; extractive remains intentionally unverified and returns `confidence=null`.
 
 ### 8. Svelte frontend
 
@@ -493,7 +509,7 @@ curl -s http://localhost:8000/api/health
 }
 ```
 
-Response includes `summary`, `mode`, `persona`, and for hybrid/abstractive modes: `confidence` (0.0-1.0) and `flagged_entities`.
+Response always includes `summary`, `mode`, `persona`, `confidence`, and `flagged_entities`. `confidence=null` means the summary was not verified.
 
 ### GET /api/summarize/stream
 
@@ -502,7 +518,7 @@ Query params: `url`, `k`, `mode`, `persona`, `length`.
 Returns `text/event-stream` with event types:
 - `event: meta` - pipeline mode and persona
 - `event: token` - individual tokens as they generate
-- `event: done` - final summary with confidence and flagged entities
+- `event: done` - final summary with confidence and flagged entities when verification ran
 - `event: error` - error message if something fails
 
 ### POST /api/user/preferences
@@ -611,21 +627,21 @@ These are addressable with sentence-transformer embeddings and position-aware sc
 
 ### Mock vs real LLM gap
 
-The `MockAbstractor` is deterministic and fast, which is great for CI, but it produces summaries that are just the first 3 extracted sentences glued together. This means:
+The `MockAbstractor` is deterministic and fast, which is great for CI, but it still approximates real model behavior. This means:
 - ROUGE scores from mock runs reflect extractive quality, not abstractive quality
 - Streaming tests verify the SSE protocol but not actual token generation timing
-- Persona styling has zero effect in mock mode (the prompt is ignored)
+- Persona styling and length now use deterministic heuristics in mock mode, but the output is still much less faithful than a real LLM rewrite
 
 The comparative evaluation (see results above) confirms this gap: hybrid ROUGE-1 is only +1.4 points over extractive on CNN/DailyMail, partly because ROUGE penalizes paraphrasing. BERTScore would give a fairer picture of semantic quality.
 
 ### NER verification false positives
 
-The spaCy `en_core_web_sm` model flags entities that are technically valid but look suspicious:
-- Abbreviations the LLM introduces (e.g., "WHO" expanded to "World Health Organization" gets flagged because the exact string wasn't in the source)
-- Possessive forms ("Canada's" vs "Canada") fail the exact-match comparison
-- Common words incorrectly tagged as entities by the small model
+The spaCy `en_core_web_sm` model still has limits, but the verifier now filters the noisiest scaffolding before it scores:
+- Dates, percentages, money, ordinals, and other numeric entities are ignored
+- Citation scaffolding such as reference sections, URLs, and common attribution entities are stripped before NER
+- Numbered action lists and markdown formatting are normalized away before comparison
 
-We normalize with lowercase + strip, which helps, but a more robust approach would use entity linking or a larger spaCy model. The current setup is good enough for a confidence signal, not a hard filter.
+Even after those filters, the verifier can still miss paraphrased attributions or over-flag rephrasings. The current setup is good enough for a confidence signal, not a hard filter.
 
 ### vLLM network reachability
 
@@ -634,6 +650,7 @@ The Prometheus cluster (Talos k8s, RTX 3090, vLLM serving Mistral-7B-Instruct-v0
 - Campus/public WiFi requires Tailscale to reach the endpoint
 - vLLM cold starts take ~45s to load the 7B model into GPU memory
 - The API defaults to mock mode (`USE_MOCK_LLM=1`) so the entire codebase works without any LLM connectivity
+- The real-LLM path now reads `VLLM_MODEL` from the environment instead of assuming a placeholder model name
 - **Validated**: all 3 pipeline modes (extractive, abstractive, hybrid) and all 4 personas tested against live vLLM. NER verification catches real hallucinations (e.g., Mistral invented "June 2019" when the source said "last June")
 
 Phase 5 will add Flux manifests that deploy the API alongside vLLM in the same cluster, eliminating the network hop issue entirely.
@@ -653,6 +670,7 @@ The first stabilization pass is documented in [docs/qa-audit.md](docs/qa-audit.m
 - Contract fixes were prioritized first: API routing, response shape, confidence semantics, and signed-in feed fallback.
 - The pass was verified with targeted backend regression tests plus `svelte-check` and a production Svelte build.
 - Mock mode now applies deterministic persona and length heuristics so the controls remain demonstrable in CI and offline runs, while still remaining less faithful than a real LLM.
+- Follow-up commit `80b621e` wired `VLLM_MODEL`, verified abstractive outputs, made extractive length scale the effective sentence budget, and filtered common verifier false positives.
 - Multi-replica personalization and comparative evaluation replay are documented as deferred work, not hidden.
 
 ---
@@ -661,7 +679,7 @@ The first stabilization pass is documented in [docs/qa-audit.md](docs/qa-audit.m
 
 | Metric | Value |
 |--------|-------|
-| Tests | 223 |
+| Tests | 244 |
 | Coverage | 91% |
 | Pipeline modes | 3 (extractive, abstractive, hybrid) |
 | Personas | 5 (default, technical, casual, executive, academic) |
