@@ -652,7 +652,7 @@ The first stabilization pass is documented in [docs/qa-audit.md](docs/qa-audit.m
 
 - Contract fixes were prioritized first: API routing, response shape, confidence semantics, and signed-in feed fallback.
 - The pass was verified with targeted backend regression tests plus `svelte-check` and a production Svelte build.
-- Mock-mode persona and length behavior remain a known limitation for CI and offline runs.
+- Mock mode now applies deterministic persona and length heuristics so the controls remain demonstrable in CI and offline runs, while still remaining less faithful than a real LLM.
 - Multi-replica personalization and comparative evaluation replay are documented as deferred work, not hidden.
 
 ---
