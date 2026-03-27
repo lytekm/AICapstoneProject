@@ -1,0 +1,21 @@
+%% System-level architecture for the current rouge-one implementation.
+%% Render in Mermaid-compatible Markdown or mermaid.live.
+
+flowchart TB
+    User["User / reviewer"] --> Frontend["SvelteKit frontend<br/>dashboard, summarize, profile, compare"]
+    Frontend --> API["FastAPI app<br/>9 API routes + static frontend shell"]
+
+    API --> Feed["CBC RSS feed"]
+    API --> Profiles["Profile and feedback stores<br/>JSON-backed, demo-grade persistence"]
+    API --> Ranker["Article ranker<br/>topics + keywords + feedback weights"]
+
+    API --> Extract["Extractive stage<br/>TextRank + centroid + MMR"]
+    Extract --> Abstract["Abstractive stage<br/>MockAbstractor or optional private vLLM"]
+    Abstract --> Verify["spaCy verifier<br/>grounding metadata"]
+
+    Extract -- "extractive mode" --> API
+    Abstract -- "abstractive mode" --> API
+    Verify -- "hybrid or verified abstractive" --> API
+
+    Ranker <--> Profiles
+    Abstract -.-> PrivateLLM["Private self-hosted vLLM<br/>LAN, Tailscale, or in-cluster access"]

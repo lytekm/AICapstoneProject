@@ -1,0 +1,17 @@
+%% Extractive sentence-selection algorithm used by rouge-one.
+
+flowchart TD
+    Article["Article text"] --> Sentences["Sentence tokenization<br/>NLTK punkt"]
+    Sentences --> TFIDF["TF-IDF vectorization<br/>scikit-learn"]
+    TFIDF --> Cosine["Cosine similarity matrix"]
+
+    Cosine --> TextRank["TextRank<br/>PageRank on sentence graph"]
+    TFIDF --> Centroid["Centroid similarity<br/>distance from mean vector"]
+
+    TextRank --> Blend["Blend relevance scores<br/>alpha * TextRank + (1 - alpha) * centroid"]
+    Centroid --> Blend
+
+    Blend --> MMR["MMR selection<br/>balance relevance vs diversity"]
+    MMR --> Budget["Sentence budget<br/>requested k or effective_k after length scaling"]
+    Budget --> Ordered["Restore document order"]
+    Ordered --> Summary["Extractive summary"]
