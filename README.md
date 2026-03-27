@@ -273,12 +273,7 @@ make dev
 Verify in a second terminal:
 
 ```bash
-ARTICLE_URL=$(curl -s http://localhost:8000/api/articles | python - <<'PY'
-import json, sys
-articles = json.load(sys.stdin)
-print(articles[0]["link"])
-PY
-)
+ARTICLE_URL=$(curl -s http://localhost:8000/api/articles | python -c 'import json, sys; print(json.load(sys.stdin)[0]["link"])')
 
 # health check
 curl -s http://localhost:8000/api/health
