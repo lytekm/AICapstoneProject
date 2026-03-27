@@ -32,8 +32,8 @@ class PipelineResult:
     summary: str
     mode: str
     persona: str
-    # 1.0 = no hallucination risk, lower = NER found suspicious entities
-    confidence: float = 1.0
+    # None means the summary was not verified; otherwise the verifier score.
+    confidence: float | None = None
     flagged_entities: list[str] = field(default_factory=list)
     # the raw extracted sentences before LLM rewriting
     extractive_sentences: list[str] = field(default_factory=list)
@@ -79,6 +79,18 @@ class SummarizationPipeline:
             max_tokens=max_tokens,
         )
 
+    def _verify(self, source_text: str, summary_text: str) -> tuple[float | None, list[str]]:
+        """Run NER verification when available and return a normalized result."""
+        if not self.verifier.available:
+            return None, []
+
+        try:
+            verification = self.verifier.verify(source_text, summary_text)
+        except Exception:
+            return None, []
+
+        return verification.confidence, verification.flagged_entities
+
     def run(
         self,
         text: str,
@@ -119,8 +131,6 @@ class SummarizationPipeline:
             summary=str(result.get("summary", "")),
             mode="extractive",
             persona=persona,
-            # extractive is always 1.0 confidence -- no hallucination possible
-            confidence=1.0,
             extractive_sentences=extracted,
         )
 
@@ -146,7 +156,6 @@ class SummarizationPipeline:
                 summary=str(result.get("summary", "")),
                 mode="abstractive",
                 persona=persona,
-                confidence=1.0,
                 extractive_sentences=extracted,
                 metadata={"abstractor_error": str(exc), "fallback": "extractive"},
             )
@@ -155,7 +164,6 @@ class SummarizationPipeline:
             summary=summary,
             mode="abstractive",
             persona=persona,
-            confidence=1.0,
             extractive_sentences=extracted,
         )
 
@@ -183,20 +191,12 @@ class SummarizationPipeline:
                 summary=str(result.get("summary", "")),
                 mode="hybrid",
                 persona=persona,
-                confidence=1.0,
                 extractive_sentences=extracted,
                 metadata={"abstractor_error": str(exc), "fallback": "extractive"},
             )
 
         # Stage 3: NER-based hallucination check
-        try:
-            verification = self.verifier.verify(text, summary)
-            confidence = verification.confidence
-            flagged = verification.flagged_entities
-        except Exception:
-            # if spaCy fails, don't block the response
-            confidence = 1.0
-            flagged = []
+        confidence, flagged = self._verify(text, summary)
 
         return PipelineResult(
             summary=summary,
@@ -250,7 +250,7 @@ class SummarizationPipeline:
                 "summary": str(result.get("summary", "")),
                 "mode": "extractive",
                 "persona": persona,
-                "confidence": 1.0,
+                "confidence": None,
                 "flagged_entities": [],
             })
             return
@@ -283,7 +283,7 @@ class SummarizationPipeline:
                 "summary": str(result.get("summary", "")),
                 "mode": mode,
                 "persona": persona,
-                "confidence": 1.0,
+                "confidence": None,
                 "flagged_entities": [],
                 "fallback": "extractive",
                 "error": str(exc),
@@ -291,15 +291,10 @@ class SummarizationPipeline:
             return
 
         # run NER verification on the complete streamed output (hybrid only)
-        confidence = 1.0
+        confidence: float | None = None
         flagged: list[str] = []
         if mode == "hybrid":
-            try:
-                verification = self.verifier.verify(text, full_text)
-                confidence = verification.confidence
-                flagged = verification.flagged_entities
-            except Exception:
-                pass
+            confidence, flagged = self._verify(text, full_text)
 
         yield _sse("done", {
             "summary": full_text,

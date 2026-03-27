@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from api import _parse_k, app
+from src.pipeline import PipelineResult
 
 
 @pytest.fixture
@@ -16,6 +17,12 @@ class TestHealthEndpoint:
         resp = client.get("/api/health")
         assert resp.status_code == 200
         assert resp.json() == {"status": "ok"}
+
+
+class TestCatchAllRouting:
+    def test_unknown_api_path_returns_404(self, client):
+        resp = client.get("/api/does-not-exist")
+        assert resp.status_code == 404
 
 
 class TestParseK:
@@ -195,11 +202,66 @@ class TestSummarizeWithPersona:
 
 
 class TestSummarizeResponseFormat:
+    @patch("api.pipeline.run")
     @patch("api._extract_main_text")
     @patch("api._fetch_url")
-    def test_response_includes_metadata(self, mock_fetch, mock_extract, client):
+    def test_extractive_response_includes_null_metadata(self, mock_fetch, mock_extract, mock_pipeline_run, client):
         mock_fetch.return_value = "<html>article</html>"
         mock_extract.return_value = MOCK_ARTICLE_TEXT
+        mock_pipeline_run.return_value = PipelineResult(
+            summary="Extractive summary.",
+            mode="extractive",
+            persona="default",
+            confidence=0.91,
+            flagged_entities=["ignored"],
+        )
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "mode": "extractive",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["mode"] == "extractive"
+        assert data["confidence"] is None
+        assert data["flagged_entities"] == []
+
+    @patch("api.pipeline.run")
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_abstractive_response_includes_null_metadata(self, mock_fetch, mock_extract, mock_pipeline_run, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        mock_pipeline_run.return_value = PipelineResult(
+            summary="Abstractive summary.",
+            mode="abstractive",
+            persona="casual",
+            confidence=0.83,
+            flagged_entities=["ignored"],
+        )
+        resp = client.post("/api/summarize", json={
+            "url": "https://example.com/article",
+            "mode": "abstractive",
+            "persona": "casual",
+        })
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["mode"] == "abstractive"
+        assert data["confidence"] is None
+        assert data["flagged_entities"] == []
+
+    @patch("api.pipeline.run")
+    @patch("api._extract_main_text")
+    @patch("api._fetch_url")
+    def test_hybrid_response_preserves_verified_metadata(self, mock_fetch, mock_extract, mock_pipeline_run, client):
+        mock_fetch.return_value = "<html>article</html>"
+        mock_extract.return_value = MOCK_ARTICLE_TEXT
+        mock_pipeline_run.return_value = PipelineResult(
+            summary="Hybrid summary.",
+            mode="hybrid",
+            persona="technical",
+            confidence=0.64,
+            flagged_entities=["entity-a", "entity-b"],
+        )
         resp = client.post("/api/summarize", json={
             "url": "https://example.com/article",
             "mode": "hybrid",
@@ -208,11 +270,36 @@ class TestSummarizeResponseFormat:
         })
         assert resp.status_code == 200
         data = resp.json()
-        assert "summary" in data
-        assert "mode" in data
-        assert "persona" in data
-        assert "confidence" in data
-        assert "flagged_entities" in data
+        assert data["mode"] == "hybrid"
+        assert data["confidence"] == pytest.approx(0.64)
+        assert data["flagged_entities"] == ["entity-a", "entity-b"]
+
+
+class TestFeedbackEndpoint:
+    @patch("api.feedback_store.record")
+    @patch("api.profile_store.get")
+    def test_feedback_accepts_real_boolean(self, mock_profile_get, mock_record, client):
+        mock_profile_get.return_value = None
+        resp = client.post("/api/user/feedback", json={
+            "user_id": "u1",
+            "article_title": "Article",
+            "persona": "default",
+            "mode": "extractive",
+            "liked": True,
+        })
+        assert resp.status_code == 200
+        assert resp.json() == {"status": "recorded"}
+        assert mock_record.called
+
+    def test_feedback_rejects_string_boolean(self, client):
+        resp = client.post("/api/user/feedback", json={
+            "user_id": "u1",
+            "article_title": "Article",
+            "persona": "default",
+            "mode": "extractive",
+            "liked": "false",
+        })
+        assert resp.status_code == 422
 
 
 class TestStreamEndpoint:

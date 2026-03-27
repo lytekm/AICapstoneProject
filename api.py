@@ -9,14 +9,16 @@ from __future__ import annotations
 import os
 import urllib.request
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import feedparser
 import trafilatura
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field, StrictBool
 
 from src.article_ranker import ArticleRanker
 from src.feedback import FeedbackEntry, FeedbackStore, apply_feedback
@@ -63,7 +65,15 @@ class SummarizeResponse(BaseModel):
     mode: str
     persona: str
     confidence: float | None = None
-    flagged_entities: list[str] | None = None
+    flagged_entities: list[str] = Field(default_factory=list)
+
+
+class FeedbackRequest(BaseModel):
+    user_id: str
+    article_title: str
+    persona: str = "default"
+    mode: str = "extractive"
+    liked: StrictBool
 
 
 # ----------------------------
@@ -102,6 +112,27 @@ def _parse_k(value: Any, default: int = DEFAULT_K, k_min: int = 1, k_max: int = 
     except Exception:
         k = int(default)
     return max(k_min, min(k, k_max))
+
+
+def _build_summarize_response(result: Any, mode: str) -> dict[str, Any]:
+    """Normalize summarize responses so all modes share the same wire shape."""
+    confidence = (
+        result.confidence
+        if mode == "hybrid" and result.confidence is not None
+        else None
+    )
+    flagged_entities = (
+        list(result.flagged_entities)
+        if mode == "hybrid" and result.confidence is not None
+        else []
+    )
+    return SummarizeResponse(
+        summary=result.summary,
+        mode=result.mode,
+        persona=result.persona,
+        confidence=confidence,
+        flagged_entities=flagged_entities,
+    ).model_dump()
 
 
 # ----------------------------
@@ -182,17 +213,7 @@ def summarize(data: dict[str, Any]) -> dict[str, Any]:
     if not result.summary.strip():
         raise HTTPException(status_code=500, detail="Pipeline returned an empty summary.")
 
-    response: dict[str, Any] = {
-        "summary": result.summary,
-        "mode": result.mode,
-        "persona": result.persona,
-    }
-
-    if mode in ("hybrid", "abstractive"):
-        response["confidence"] = result.confidence
-        response["flagged_entities"] = result.flagged_entities
-
-    return response
+    return _build_summarize_response(result, mode)
 
 
 @app.get("/api/summarize/stream")
@@ -298,30 +319,26 @@ def get_user_preferences(user_id: str) -> dict[str, Any]:
 
 
 @app.post("/api/user/feedback")
-def record_feedback(data: dict[str, Any]) -> dict[str, str]:
+def record_feedback(data: FeedbackRequest) -> dict[str, str]:
     """Record a like or dislike on a summary.
 
     Expects: {"user_id": "...", "article_title": "...", "persona": "...",
               "mode": "...", "liked": true/false}
     """
-    user_id = (data.get("user_id") or "").strip()
+    user_id = data.user_id.strip()
     if not user_id:
         raise HTTPException(status_code=400, detail="Missing 'user_id'.")
 
-    article_title = (data.get("article_title") or "").strip()
+    article_title = data.article_title.strip()
     if not article_title:
         raise HTTPException(status_code=400, detail="Missing 'article_title'.")
-
-    liked = data.get("liked")
-    if liked is None:
-        raise HTTPException(status_code=400, detail="Missing 'liked' (true/false).")
 
     entry = FeedbackEntry(
         user_id=user_id,
         article_title=article_title,
-        persona=str(data.get("persona", "default")),
-        mode=str(data.get("mode", "extractive")),
-        liked=bool(liked),
+        persona=data.persona.strip(),
+        mode=data.mode.strip(),
+        liked=data.liked,
     )
     feedback_store.record(entry)
 
@@ -363,3 +380,31 @@ def get_personalized_articles(
         }
         for r in ranked
     ]
+
+
+# ----------------------------
+# Static frontend serving
+# ----------------------------
+# SvelteKit builds static files into frontend/. We serve them here so the
+# same uvicorn process handles both the API and the UI -- no separate web
+# server needed for local dev or single-container deployment.
+
+FRONTEND_DIR = Path(__file__).resolve().parent / "frontend"
+
+if FRONTEND_DIR.is_dir():
+    # serve the SvelteKit _app directory (JS/CSS bundles)
+    app.mount("/_app", StaticFiles(directory=FRONTEND_DIR / "_app"), name="svelte-app")
+
+    # catch-all: any non-API route returns index.html so SvelteKit client
+    # routing works (e.g. /summarize, /profile, /compare).
+    @app.get("/{full_path:path}")
+    def serve_frontend(full_path: str) -> FileResponse:
+        # let unknown API paths return a real API 404 instead of HTML
+        if full_path == "api" or full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        # try to serve a static file first (e.g. favicon.png)
+        file_path = FRONTEND_DIR / full_path
+        if full_path and file_path.is_file():
+            return FileResponse(file_path)
+        # fall back to index.html for client-side routing
+        return FileResponse(FRONTEND_DIR / "index.html")

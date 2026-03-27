@@ -2,8 +2,35 @@ import pytest
 
 from src.abstractor import MockAbstractor
 from src.pipeline import PipelineResult, SummarizationPipeline
-from src.verifier import NERVerifier
+from src.verifier import VerificationResult
 from tests.conftest import SAMPLE_ARTICLE
+
+
+class AvailableVerifier:
+    available = True
+
+    def __init__(
+        self,
+        confidence: float = 0.73,
+        flagged_entities: list[str] | None = None,
+    ) -> None:
+        self.confidence = confidence
+        self.flagged_entities = flagged_entities or ["hallucinated entity"]
+
+    def verify(self, source_text: str, summary_text: str) -> VerificationResult:
+        return VerificationResult(
+            confidence=self.confidence,
+            flagged_entities=list(self.flagged_entities),
+            source_entities=["source"],
+            summary_entities=["summary"],
+        )
+
+
+class UnavailableVerifier:
+    available = False
+
+    def verify(self, source_text: str, summary_text: str) -> VerificationResult:
+        raise AssertionError("verify() should not be called when the verifier is unavailable")
 
 
 class TestExtractiveMode:
@@ -17,10 +44,10 @@ class TestExtractiveMode:
         result = pipe.run(SAMPLE_ARTICLE, mode="extractive")
         assert len(result.summary.strip()) > 0
 
-    def test_confidence_is_one(self):
+    def test_confidence_is_none(self):
         pipe = SummarizationPipeline(abstractor=MockAbstractor())
         result = pipe.run(SAMPLE_ARTICLE, mode="extractive")
-        assert result.confidence == 1.0
+        assert result.confidence is None
 
     def test_mode_is_extractive(self):
         pipe = SummarizationPipeline(abstractor=MockAbstractor())
@@ -69,27 +96,28 @@ class TestAbstractiveMode:
 class TestHybridMode:
     def test_all_three_stages_run(self):
         mock = MockAbstractor()
-        pipe = SummarizationPipeline(abstractor=mock)
+        pipe = SummarizationPipeline(abstractor=mock, verifier=AvailableVerifier())
         result = pipe.run(SAMPLE_ARTICLE, mode="hybrid")
         assert "[Mock Summary]" in result.summary
         assert isinstance(result.confidence, float)
 
     def test_confidence_from_verifier(self):
         mock = MockAbstractor()
-        verifier = NERVerifier()
+        verifier = AvailableVerifier(confidence=0.42, flagged_entities=["x"])
         pipe = SummarizationPipeline(abstractor=mock, verifier=verifier)
         result = pipe.run(SAMPLE_ARTICLE, mode="hybrid")
-        assert 0.0 <= result.confidence <= 1.0
+        assert result.confidence == pytest.approx(0.42)
+        assert result.flagged_entities == ["x"]
 
     def test_flagged_entities_is_list(self):
         mock = MockAbstractor()
-        pipe = SummarizationPipeline(abstractor=mock)
+        pipe = SummarizationPipeline(abstractor=mock, verifier=AvailableVerifier())
         result = pipe.run(SAMPLE_ARTICLE, mode="hybrid")
         assert isinstance(result.flagged_entities, list)
 
     def test_extractive_sentences_populated(self):
         mock = MockAbstractor()
-        pipe = SummarizationPipeline(abstractor=mock)
+        pipe = SummarizationPipeline(abstractor=mock, verifier=AvailableVerifier())
         result = pipe.run(SAMPLE_ARTICLE, mode="hybrid", k=3)
         assert len(result.extractive_sentences) > 0
 
@@ -100,11 +128,12 @@ class TestErrorHandling:
             def generate(self, system_prompt: str, user_prompt: str, max_tokens: int = 512) -> str:
                 raise RuntimeError("LLM unavailable")
 
-        pipe = SummarizationPipeline(abstractor=FailingAbstractor())
+        pipe = SummarizationPipeline(abstractor=FailingAbstractor(), verifier=AvailableVerifier())
         result = pipe.run(SAMPLE_ARTICLE, mode="hybrid")
         # Should fall back to extractive summary
         assert len(result.summary.strip()) > 0
         assert "abstractor_error" in result.metadata
+        assert result.confidence is None
 
     def test_abstractor_failure_in_abstractive_mode(self):
         class FailingAbstractor(MockAbstractor):
@@ -164,7 +193,7 @@ class TestStreamExtractiveMode:
 
 class TestStreamHybridMode:
     def test_yields_meta_tokens_done(self):
-        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        pipe = SummarizationPipeline(abstractor=MockAbstractor(), verifier=AvailableVerifier())
         events = list(pipe.run_stream(SAMPLE_ARTICLE, mode="hybrid", delay=0))
         event_types = [e.split("event: ")[1].split("\n")[0] for e in events]
         assert event_types[0] == "meta"
@@ -173,13 +202,23 @@ class TestStreamHybridMode:
 
     def test_done_event_has_confidence(self):
         import json
-        pipe = SummarizationPipeline(abstractor=MockAbstractor())
+        pipe = SummarizationPipeline(abstractor=MockAbstractor(), verifier=AvailableVerifier(confidence=0.58))
         events = list(pipe.run_stream(SAMPLE_ARTICLE, mode="hybrid", delay=0))
         done_event = events[-1]
         data_line = done_event.split("data: ")[1].split("\n")[0]
         data = json.loads(data_line)
         assert "confidence" in data
-        assert 0.0 <= data["confidence"] <= 1.0
+        assert data["confidence"] == pytest.approx(0.58)
+
+    def test_done_event_has_null_confidence_without_verifier(self):
+        import json
+        pipe = SummarizationPipeline(abstractor=MockAbstractor(), verifier=UnavailableVerifier())
+        events = list(pipe.run_stream(SAMPLE_ARTICLE, mode="hybrid", delay=0))
+        done_event = events[-1]
+        data_line = done_event.split("data: ")[1].split("\n")[0]
+        data = json.loads(data_line)
+        assert data["confidence"] is None
+        assert data["flagged_entities"] == []
 
     def test_token_events_build_summary(self):
         import json
@@ -209,8 +248,7 @@ class TestStreamAbstractiveMode:
         done_event = events[-1]
         data_line = done_event.split("data: ")[1].split("\n")[0]
         data = json.loads(data_line)
-        # abstractive still has confidence field (1.0 since no verifier)
-        assert data["confidence"] == 1.0
+        assert data["confidence"] is None
 
 
 class TestStreamErrorHandling:
