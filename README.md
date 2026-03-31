@@ -139,6 +139,29 @@ The current branch is submission-ready, but a production-grade version would sti
 - narrower gap between mock behavior and real LLM behavior
 - public hosting hardening: auth, networking, secrets, and operational ownership
 
+## Container Publishing And Platform Deployment
+
+This repo owns the application image lifecycle.
+
+- GitHub Actions publishes the API image to GitHub Container Registry (`GHCR`)
+- the published image path is `ghcr.io/ixxet/uas-api`
+- each push publishes an immutable-by-convention commit tag:
+  - `ghcr.io/ixxet/uas-api:sha-<git-commit>`
+- branch pushes may also publish a convenience tag such as:
+  - `ghcr.io/ixxet/uas-api:rouge-one`
+
+Deployment policy:
+
+- local development can still use `make dev` and mock mode
+- the private Talos platform repo deploys this app by image reference only
+- the platform should deploy the `sha-...` image tag, not the floating branch tag
+- rollback is done by reverting the deployed image reference in the platform repo
+
+This keeps the ownership boundary clean:
+
+- this repo owns application code, Docker image builds, and app behavior
+- the private platform repo owns Kubernetes deployment, monitoring, and external exposure
+
 ## Docs Index
 
 - [Academic / capstone readme](docs/academic-readme.md)
