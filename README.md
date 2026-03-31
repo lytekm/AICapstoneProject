@@ -163,6 +163,12 @@ This keeps the ownership boundary clean:
 - this repo owns application code, Docker image builds, and app behavior
 - the private platform repo owns Kubernetes deployment, monitoring, and external exposure
 
+Runtime image notes:
+
+- the production image installs `requirements.runtime.txt`, not the full development dependency set
+- heavy dataset and evaluation libraries stay in the repo for capstone work, but are excluded from the API runtime image
+- this keeps cluster pulls and rollouts practical on slower links without changing the deployed app behavior
+
 ## Docs Index
 
 - [Academic / capstone readme](docs/academic-readme.md)
