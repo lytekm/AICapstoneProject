@@ -19,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, StrictBool
+from prometheus_fastapi_instrumentator import Instrumentator
 
 from src.article_ranker import ArticleRanker
 from src.feedback import FeedbackEntry, FeedbackStore, apply_feedback
@@ -37,6 +38,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+Instrumentator(
+    should_group_status_codes=False,
+    should_ignore_untemplated=True,
+    excluded_handlers=["/api/health", "/metrics"],
+).instrument(app).expose(app, include_in_schema=False)
 
 DEFAULT_RSS = os.getenv("RSS_FEED_URL", "https://www.cbc.ca/cmlink/rss-business")
 DEFAULT_K = 5

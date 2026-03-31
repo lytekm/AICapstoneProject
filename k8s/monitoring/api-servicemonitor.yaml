@@ -1,7 +1,5 @@
 # ServiceMonitor for the FastAPI backend.
-# Prometheus scrapes /api/health every 15s for uptime metrics.
-# If we add a /metrics endpoint later (e.g., via prometheus-fastapi-instrumentator),
-# change the path to /metrics for request latency, throughput, etc.
+# Prometheus scrapes /metrics for request latency, throughput, and status code data.
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
@@ -15,5 +13,5 @@ spec:
       app: api
   endpoints:
     - port: http
-      path: /api/health
+      path: /metrics
       interval: 15s

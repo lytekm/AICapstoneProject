@@ -125,6 +125,7 @@ Recommended wording:
 - length control for both rewrite budget and extractive sentence budget
 - SvelteKit frontend with dashboard, summarize, profile, and compare pages
 - FastAPI backend with REST + SSE streaming endpoints
+- Prometheus-friendly `/metrics` endpoint for platform monitoring
 - user profiles, article ranking, and a feedback loop
 - 244 tests, 91% coverage, and GitHub Actions CI
 - Talos/Flux/Cilium/Prometheus/Grafana deployment scaffolding for the self-hosted path
