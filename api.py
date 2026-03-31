@@ -18,8 +18,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field, StrictBool
 from prometheus_fastapi_instrumentator import Instrumentator
+from pydantic import BaseModel, Field, StrictBool
 
 from src.article_ranker import ArticleRanker
 from src.feedback import FeedbackEntry, FeedbackStore, apply_feedback
