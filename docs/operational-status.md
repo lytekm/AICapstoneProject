@@ -8,6 +8,7 @@ This document keeps the table-first operational notes for the project. It is the
 | --- | --- | --- |
 | Portfolio summary, architecture snapshot, quick run path | `README.md` | Keeps the landing page short and recruiter-friendly |
 | Deep technical narrative, runbook, API reference, milestones | `docs/academic-readme.md` | Better fit for professors, teammates, and capstone review |
+| Condensed roadmap and remaining improvements | `docs/future-plans.md` | Better fit for planning cleanup than the landing page or runbook |
 | Operational status tables, demo-day checks, versioning rules, troubleshooting summaries | `docs/operational-status.md` | Best fit for fast scanning and day-to-day project operations |
 
 ## Semantic Versioning
@@ -76,4 +77,3 @@ Recommended preflight sequence:
 | Does a tunnel prove the app is using the real LLM? | No | The tunnel only exposes whatever local process is already running |
 | Does a healthy `/api/health` prove live inference is healthy? | No | It proves the API is alive, not that vLLM is reachable or responsive |
 | What is the strongest single proof of live inference? | A real `abstractive` or `hybrid` summarize response that does not start with `[Mock Summary]` | This confirms end-to-end non-mock execution |
-

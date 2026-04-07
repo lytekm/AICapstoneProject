@@ -155,13 +155,15 @@ Recommended wording:
 
 ## Professional Roadmap
 
-The current branch is submission-ready, but a production-grade version would still need:
+| Track | Next improvement | Why it still matters |
+| --- | --- | --- |
+| Persistence | move profile and feedback storage to a shared store such as Postgres | current JSON-backed state is demo-grade and can diverge across replicas |
+| Verification | add claim-level grounding or entailment on top of NER matching | current verifier is useful, but still heuristic |
+| Evaluation | make live LLM comparisons fully replayable with locked configs and saved artifacts | stronger academic and portfolio evidence |
+| Extractive core | add optional embeddings-assisted relevance and evidence-aware outputs | improves semantic quality without discarding the interpretable baseline |
+| Deployment hardening | define an owned auth, secrets, and private-network exposure path | necessary before any serious hosted deployment claim |
 
-- shared persistence so multi-replica personalization is not tied to local JSON files
-- a fully replayable comparative evaluation path for live LLM runs
-- a stronger verifier than filtered spaCy NER matching
-- narrower gap between mock behavior and real LLM behavior
-- public hosting hardening: auth, networking, secrets, and operational ownership
+Condensed next-phase planning lives in [docs/future-plans.md](docs/future-plans.md).
 
 ## Container Publishing And Platform Deployment
 
@@ -195,6 +197,7 @@ Runtime image notes:
 ## Docs Index
 
 - [Academic / capstone readme](docs/academic-readme.md)
+- [Future plans and improvements](docs/future-plans.md)
 - [Operational status tables](docs/operational-status.md)
 - [QA stabilization audit](docs/qa-audit.md)
 - [Architecture overview](docs/architecture-overview.mmd)

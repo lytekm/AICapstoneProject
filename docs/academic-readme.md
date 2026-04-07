@@ -11,6 +11,7 @@ This document keeps the capstone-depth narrative that used to live in the root R
 ## Documentation Map
 
 - [Root portfolio readme](../README.md)
+- [Future plans and improvements](future-plans.md)
 - [Operational status tables](operational-status.md)
 - [QA stabilization audit](qa-audit.md)
 - [Architecture overview](architecture-overview.mmd)
@@ -503,6 +504,8 @@ The current real-LLM path is a private self-hosted service. Professional next st
 ### Comparative evaluation reproducibility
 
 The repo preserves comparative outputs, but the exact replay path for every live LLM comparison is not yet fully self-contained. That is acceptable for the capstone when stated honestly, but it remains a productionization gap.
+
+For the condensed next-phase planning summary, see [future-plans.md](future-plans.md).
 
 ## QA Stabilization Summary
 
