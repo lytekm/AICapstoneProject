@@ -11,6 +11,7 @@ This document keeps the capstone-depth narrative that used to live in the root R
 ## Documentation Map
 
 - [Root portfolio readme](../README.md)
+- [Operational status tables](operational-status.md)
 - [QA stabilization audit](qa-audit.md)
 - [Architecture overview](architecture-overview.mmd)
 - [Pipeline flow](pipeline-flow.mmd)

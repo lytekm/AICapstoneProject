@@ -195,6 +195,7 @@ Runtime image notes:
 ## Docs Index
 
 - [Academic / capstone readme](docs/academic-readme.md)
+- [Operational status tables](docs/operational-status.md)
 - [QA stabilization audit](docs/qa-audit.md)
 - [Architecture overview](docs/architecture-overview.mmd)
 - [Pipeline flow](docs/pipeline-flow.mmd)
