@@ -57,7 +57,7 @@ git checkout rouge-one
 pip install -e ".[dev]"
 python -m spacy download en_core_web_sm
 python -m nltk.downloader punkt punkt_tab
-make dev
+make dev-mock
 ```
 
 Open [http://localhost:8000/](http://localhost:8000/).
@@ -66,22 +66,45 @@ Notes:
 - the checked-in Svelte build is served by FastAPI at `/`
 - `docker-compose.yml` is API-only; it does not provision vLLM or a separate Svelte dev server
 - the web UI uses a fixed default `k=5`; the API still accepts explicit `k` for experiments
+- `make dev` remains an alias for `make dev-mock` for backwards compatibility
 
 ### Optional real LLM mode: private backend
 
 This path is for teammates or reviewers who have access to your self-hosted vLLM endpoint over the home LAN, Tailscale, or another private network path.
 
 ```bash
-USE_MOCK_LLM=0 \
-VLLM_BASE_URL=http://<private-host>:8000/v1 \
-VLLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 \
-VLLM_API_KEY=EMPTY \
-make dev
+make dev-real \
+  VLLM_BASE_URL=http://<private-host>:8000/v1 \
+  VLLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 \
+  VLLM_API_KEY=EMPTY
 ```
 
 This repo does not claim a public hosted LLM demo. The supported sharing model is:
 - everyone can run the full app locally in mock mode
 - authorized teammates can point the same app at the private backend when connectivity is available
+
+Quick verification before exposing the app:
+
+```bash
+ARTICLE_URL=$(curl -s http://127.0.0.1:8000/api/articles | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["link"])')
+
+curl -s -X POST http://127.0.0.1:8000/api/summarize \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"$ARTICLE_URL\",\"k\":5,\"mode\":\"abstractive\",\"persona\":\"technical\",\"length\":\"brief\"}" \
+  | python3 -m json.tool
+```
+
+If the summary begins with `[Mock Summary]`, the app is still in mock mode and should not be tunneled for live inference.
+
+### Temporary quick tunnel for live inference
+
+Only use this after the app is already running in real LLM mode.
+
+```bash
+make tunnel-real
+```
+
+This creates an unauthenticated temporary Cloudflare quick tunnel. It is suitable for short-lived demos, not for a hardened deployment.
 
 ## Proof It Works
 

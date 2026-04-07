@@ -108,7 +108,7 @@ git checkout rouge-one
 pip install -e ".[dev]"
 python -m spacy download en_core_web_sm
 python -m nltk.downloader punkt punkt_tab
-make dev
+make dev-mock
 ```
 
 Open [http://localhost:8000/](http://localhost:8000/).
@@ -165,7 +165,7 @@ PYTHONPATH=. pytest tests/test_abstractor.py -q -k "default_model_from_env"
 ### 3. Start the API in mock mode
 
 ```bash
-make dev
+make dev-mock
 ```
 
 In another terminal:
@@ -228,17 +228,25 @@ Expected behavior:
 ```bash
 curl -s http://<private-host>:8000/v1/models | python -m json.tool
 
-USE_MOCK_LLM=0 \
-VLLM_BASE_URL=http://<private-host>:8000/v1 \
-VLLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 \
-VLLM_API_KEY=EMPTY \
-make dev
+make dev-real \
+  VLLM_BASE_URL=http://<private-host>:8000/v1 \
+  VLLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 \
+  VLLM_API_KEY=EMPTY
 ```
 
 Notes:
 - this is a private self-hosted path, not a public hosted demo
 - campus or public Wi-Fi typically requires Tailscale or another private network path to reach the backend
 - verified abstractive and hybrid outputs can return `confidence` and `flagged_entities`
+- before exposing the app, run one `abstractive` or `hybrid` summarize call and confirm the response does not begin with `[Mock Summary]`
+
+### 7b. Temporary quick tunnel for live inference
+
+```bash
+make tunnel-real
+```
+
+Use this only after `make dev-real`. It opens an unauthenticated temporary Cloudflare quick tunnel for short-lived demos.
 
 ### 8. Frontend
 
