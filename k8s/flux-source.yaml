@@ -1,0 +1,12 @@
+# Flux GitRepository source -- points at the fork's rouge-one branch.
+# Update the url/branch when merging to main for production.
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  name: uas-repo
+  namespace: flux-system
+spec:
+  interval: 5m
+  url: https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026.git
+  ref:
+    branch: rouge-one

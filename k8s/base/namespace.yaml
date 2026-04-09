@@ -1,0 +1,8 @@
+# Dedicated namespace keeps all summarizer resources isolated
+# from other workloads on the Talos cluster.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: summarizer
+  labels:
+    app.kubernetes.io/part-of: user-adaptive-summarization

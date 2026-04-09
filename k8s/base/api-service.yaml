@@ -1,0 +1,17 @@
+# API service -- frontend and external clients hit this.
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: summarizer
+  labels:
+    app: api
+spec:
+  type: ClusterIP
+  selector:
+    app: api
+  ports:
+    - port: 8000
+      targetPort: http
+      protocol: TCP
+      name: http

@@ -1,0 +1,23 @@
+# Ingress for external access via Cilium's ingress controller.
+# Routes all traffic to the API service which serves both
+# the REST endpoints and the built Svelte frontend.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: summarizer
+  namespace: summarizer
+  annotations:
+    # Cilium handles ingress on the Talos cluster
+    kubernetes.io/ingress.class: cilium
+spec:
+  rules:
+    - host: summarizer.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 8000

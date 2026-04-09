@@ -3,10 +3,9 @@ from __future__ import annotations
 import json
 from dataclasses import asdict
 from itertools import product
-from typing import Dict, List, Tuple
 
-from .summarizer_model import TextRankMMRSummarizer, SummarizerConfig
 from .evaluator import RougeEvaluator
+from .summarizer_model import SummarizerConfig, TextRankMMRSummarizer
 
 
 class SummarizerTrainer:
@@ -20,11 +19,11 @@ class SummarizerTrainer:
 
     def tune(
         self,
-        texts: List[str],
-        references: List[str],
+        texts: list[str],
+        references: list[str],
         k: int = 5,
-        search_space: Dict[str, List] | None = None,
-    ) -> Tuple[SummarizerConfig, Dict[str, float]]:
+        search_space: dict[str, list] | None = None,
+    ) -> tuple[SummarizerConfig, dict[str, float]]:
         if search_space is None:
             search_space = {
                 "mmr_lambda": [0.6, 0.75, 0.85],
@@ -38,11 +37,11 @@ class SummarizerTrainer:
         best_score = -1e9
 
         for values in product(*[search_space[k] for k in keys]):
-            params = dict(zip(keys, values))
+            params = dict(zip(keys, values, strict=False))
             cfg = SummarizerConfig(**params)
             model = TextRankMMRSummarizer(cfg)
 
-            preds = [model.summarize(t, k=k)["summary"] for t in texts]
+            preds: list[str] = [str(model.summarize(t, k=k)["summary"]) for t in texts]
             metrics = self.evaluator.evaluate(preds, references)
             score = metrics.get(self.metric, 0.0)
 
@@ -54,7 +53,7 @@ class SummarizerTrainer:
         assert best_cfg is not None and best_metrics is not None
         return best_cfg, best_metrics
 
-    def save_best(self, cfg: SummarizerConfig, metrics: Dict[str, float], path: str) -> None:
+    def save_best(self, cfg: SummarizerConfig, metrics: dict[str, float], path: str) -> None:
         payload = {"best_config": asdict(cfg), "metrics": metrics}
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, indent=2)

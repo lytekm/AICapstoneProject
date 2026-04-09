@@ -1,0 +1,15 @@
+# Persistent volume for the HuggingFace model cache.
+# Keeps the 14GB Mistral download across pod restarts so
+# cold starts only download once, not every time.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vllm-model-cache
+  namespace: summarizer
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      # Mistral-7B is ~14GB, leave headroom for tokenizer files
+      storage: 20Gi

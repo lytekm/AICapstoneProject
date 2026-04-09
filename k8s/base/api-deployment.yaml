@@ -1,0 +1,55 @@
+# FastAPI backend deployment.
+# Talks to vLLM via the in-cluster service URL.
+# USE_MOCK_LLM=0 so it uses the real LLM path.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: summarizer
+  labels:
+    app: api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      containers:
+        - name: api
+          # built from the repo's Dockerfile
+          image: ghcr.io/ixxet/uas-api:latest
+          ports:
+            - containerPort: 8000
+              name: http
+              protocol: TCP
+          env:
+            # point at the in-cluster vLLM service
+            - name: USE_MOCK_LLM
+              value: "0"
+            - name: VLLM_BASE_URL
+              value: "http://vllm.summarizer.svc.cluster.local:8000/v1"
+            - name: VLLM_API_KEY
+              value: "EMPTY"
+            - name: VLLM_MODEL
+              value: "mistralai/Mistral-7B-Instruct-v0.3"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2"
+              memory: "1Gi"
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 15

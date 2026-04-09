@@ -1,0 +1,108 @@
+{
+  "__comment": "Grafana dashboard for the User-Adaptive Summarization stack. Import via Grafana UI or provision as a ConfigMap.",
+  "dashboard": {
+    "title": "Summarizer - Inference Metrics",
+    "uid": "uas-inference",
+    "tags": ["summarizer", "vllm", "inference"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "title": "vLLM: Generation Throughput (tok/s)",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "vllm:avg_generation_throughput_toks_per_s{namespace=\"summarizer\"}",
+            "legendFormat": "gen tok/s"
+          }
+        ]
+      },
+      {
+        "title": "vLLM: Prompt Throughput (tok/s)",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "vllm:avg_prompt_throughput_toks_per_s{namespace=\"summarizer\"}",
+            "legendFormat": "prompt tok/s"
+          }
+        ]
+      },
+      {
+        "title": "vLLM: GPU KV Cache Usage (%)",
+        "type": "gauge",
+        "gridPos": { "x": 0, "y": 8, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "vllm:gpu_cache_usage_perc{namespace=\"summarizer\"}",
+            "legendFormat": "cache %"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "min": 0,
+            "max": 1,
+            "thresholds": {
+              "steps": [
+                { "color": "green", "value": 0 },
+                { "color": "yellow", "value": 0.7 },
+                { "color": "red", "value": 0.9 }
+              ]
+            }
+          }
+        }
+      },
+      {
+        "title": "vLLM: Inflight Requests",
+        "type": "timeseries",
+        "gridPos": { "x": 8, "y": 8, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "vllm:num_requests_running{namespace=\"summarizer\"}",
+            "legendFormat": "running"
+          },
+          {
+            "expr": "vllm:num_requests_waiting{namespace=\"summarizer\"}",
+            "legendFormat": "waiting"
+          }
+        ]
+      },
+      {
+        "title": "API: Health Check Uptime",
+        "type": "stat",
+        "gridPos": { "x": 16, "y": 8, "w": 8, "h": 6 },
+        "targets": [
+          {
+            "expr": "up{job=\"api\", namespace=\"summarizer\"}",
+            "legendFormat": "api"
+          }
+        ]
+      },
+      {
+        "title": "GPU Memory Utilization",
+        "type": "timeseries",
+        "gridPos": { "x": 0, "y": 14, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_FB_USED{namespace=\"summarizer\"} / DCGM_FI_DEV_FB_TOTAL{namespace=\"summarizer\"}",
+            "legendFormat": "GPU mem %"
+          }
+        ],
+        "__comment": "Requires DCGM exporter or nvidia-smi-exporter on the node"
+      },
+      {
+        "title": "GPU Compute Utilization",
+        "type": "timeseries",
+        "gridPos": { "x": 12, "y": 14, "w": 12, "h": 8 },
+        "targets": [
+          {
+            "expr": "DCGM_FI_DEV_GPU_UTIL{namespace=\"summarizer\"}",
+            "legendFormat": "GPU util %"
+          }
+        ]
+      }
+    ],
+    "time": { "from": "now-1h", "to": "now" },
+    "refresh": "30s"
+  }
+}

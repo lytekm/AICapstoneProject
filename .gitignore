@@ -2,6 +2,9 @@
 .venv/
 __pycache__/
 *.pyc
+.coverage
+.pytest_cache/
+htmlcov/
 
 # IDE
 .idea/
@@ -10,10 +13,8 @@ __pycache__/
 
 # Outputs/artifacts
 outputs/
-*.csv
 *.log
 .env
-*.mmd
 
-# Generated diagrams
-docs/diagrams/*.svg
+# User data (profiles, feedback - created at runtime)
+data/

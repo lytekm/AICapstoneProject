@@ -1,82 +1,206 @@
-# AICapstoneProject
-## TextRank + MMR Extractive Summarizer
+# User-Adaptive Summarization
 
-### Overview
-This is a module that implements an extractive text summarization pipeline that identifies the most important sentences in a news article while minimizing redundancy.
+[![CI](https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026/actions/workflows/ci.yml/badge.svg?branch=rouge-one)](https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026/actions)
+![Tests](https://img.shields.io/badge/tests-244_passed-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-91%25-brightgreen)
+![Python](https://img.shields.io/badge/python-3.10+-blue)
 
-The approach combines TextRank, which identifies globally important sentences using graph-based ranking and Maximal Marginal Relevance (MMR) which selects a diverse subset of the sentances to avoid repetition.
+A portfolio-grade capstone that turns news articles into extractive, abstractive, or hybrid summaries with persona control, lightweight grounding checks, a SvelteKit frontend, and a FastAPI backend that can run fully offline in mock mode or against a private self-hosted vLLM backend.
 
-Raw Article Text
-      ↓
-Sentence Segmentation (NLTK)
-      ↓
-TF-IDF Vectorization
-      ↓
-Sentence Similarity Matrix
-      ↓
-TextRank (Importance Scoring)
-      ↓
-MMR (Diversity-Aware Selection)
-      ↓
-Ordered Extractive Summary
+COMP385-402 Capstone Project, Group 4, Centennial College, Winter 2026.
 
-### Text processing
-Sentance segmantation is handled using NLTK's Punkt tokenizer which is good for english news-style text. Additional filtering also removes any very short or noisy sentences.
-Each sentance is vectorized using TF-IDF which allows us to capture semantic similarity using cosine similarity.
+## What It Is
 
-We compute the cosine similarity matrix with:
-Sim(Si, Sj) = Si x Sj/ ||Si||||Sj||
-This matrix gets used by both TextRank and MMR.
+This project is a multi-mode summarization platform rather than a single-model demo. It combines a custom extractive algorithm, optional LLM rewriting, verification metadata, user profiles, personalized article ranking, streaming output, and deployment scaffolding in one repo.
 
-TextRank scores the importance of the sentences by representing them as nodes in a graph, nodes being the sentences, edges being the sentence similarity and edge weights being the cosine similarity.
-Edges with low similarity using a threshold to reduce noise.
-PageRank Formula:
- \(PR(A)=\frac{1-d}{N}+d\sum _{i=1}^{n}\frac{PR(T_{i})}{C(T_{i})}\)
+## Why It Matters
 
- We use cosine similarity to help stabalize TextRank on short or noisy articles by computing the aritcle centroid by averaging all the vectors we get from the cosine similarity:
- c=N1​i=1∑N​si
- CentroidSim(si​)=cos(si​,c)
- 
- We then combine the TextRank score with the centroid similarity ​
-Rel(si​)=α⋅TextRank(si​)+(1−α)⋅CentroidSim(si​)
-The blended score gives us how important the sentence is to the whole article.
+- `extractive`, `abstractive`, and `hybrid` modes expose different accuracy and latency tradeoffs
+- persona and length controls shape the rewrite path while extractive mode stays deterministic
+- a verifier returns grounding metadata instead of pretending to prove truth
+- the app is usable end to end: article feed, summarize workspace, profile controls, compare view
+- the repo includes CI, tests, evaluation artifacts, Docker, and Kubernetes manifests
 
-Instead of selecting the top-K sentences, we use MMR to ensure diversity.
-MMR(s)=λ⋅Rel(s)−(1−λ)⋅s′∈Smax​Sim(s,s′)
-where S is slected sentences, and lamda controls relevance vs diversity, high lamda is more relevance driven, and low lamda is more diversity driven.
-We apply MMR iteratively until K sentences are selected.
+## System Overview
 
-### Usage
-```
-@dataclass
-class SummarizerConfig:
-    max_features: int = 20000
-    ngram_range: Tuple[int, int] = (1, 2)
-    stop_words: str = "english"
-    textrank_min_edge: float = 0.1
-    mmr_lambda: float = 0.75
-    blend_alpha: float = 0.7
-```
-| Parameter           | Effect                           |
-| ------------------- | -------------------------------- |
-| `mmr_lambda`        | Higher = less redundancy penalty |
-| `blend_alpha`       | Higher = more TextRank influence |
-| `textrank_min_edge` | Higher = sparser graph           |
-
-```
-out = summarize_textrank_mmr(article_text, k=5)
-print(out["summary"])
+```mermaid
+flowchart TB
+    User["User / reviewer"] --> Frontend["SvelteKit frontend<br/>dashboard, summarize, profile, compare"]
+    Frontend --> API["FastAPI app<br/>9 API routes + static frontend shell"]
+    API --> RSS["CBC RSS feed"]
+    API --> Profiles["JSON profile and feedback stores<br/>demo-grade persistence"]
+    API --> Extract["Extractive stage<br/>TextRank + centroid + MMR"]
+    Extract --> Abstract["Abstractive stage<br/>MockAbstractor or optional private vLLM"]
+    Abstract --> Verify["Verifier<br/>spaCy NER grounding signal"]
+    Extract -- "extractive mode" --> API
+    Abstract -- "abstractive mode" --> API
+    Verify -- "hybrid or verified abstractive" --> API
+    Abstract -.-> LLM["Private self-hosted vLLM<br/>LAN / Tailscale / cluster access"]
 ```
 
-Output Structure
-```
-{
-  "summary": "...",
-  "sentences": [...],
-  "selected_indices": [0, 3, 5],
-  "scores": [...]
-}
+Additional diagrams:
+- [Architecture overview](docs/architecture-overview.mmd)
+- [Pipeline flow](docs/pipeline-flow.mmd)
+- [Extractive algorithm](docs/extractive-algorithm.mmd)
+- [Frontend architecture](docs/svelte-frontend.mmd)
+
+## Run Locally
+
+### Portable default: mock mode
+
+This path works for any teammate without access to your private GPU backend.
+
+```bash
+git clone https://github.com/ixxet/User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026.git
+cd User-Adaptive-Summarization_COMP385-402_Group-4_Winter2026
+git checkout rouge-one
+pip install -e ".[dev]"
+python -m spacy download en_core_web_sm
+python -m nltk.downloader punkt punkt_tab
+make dev-mock
 ```
 
-The module uses ROUGE evaluation for comparison agianst reference summaries, allowing for quantitative validation on datasets.
-Going forward, we will improve the model to have a training process that we can use to tune the hyperparameters to maximise the rouge score. 
+Open [http://localhost:8000/](http://localhost:8000/).
+
+Notes:
+- the checked-in Svelte build is served by FastAPI at `/`
+- `docker-compose.yml` is API-only; it does not provision vLLM or a separate Svelte dev server
+- the web UI uses a fixed default `k=5`; the API still accepts explicit `k` for experiments
+- `make dev` remains an alias for `make dev-mock` for backwards compatibility
+
+### Optional real LLM mode: private backend
+
+This path is for teammates or reviewers who have access to your self-hosted vLLM endpoint over the home LAN, Tailscale, or another private network path.
+
+```bash
+make dev-real \
+  VLLM_BASE_URL=http://<private-host>:8000/v1 \
+  VLLM_MODEL=mistralai/Mistral-7B-Instruct-v0.3 \
+  VLLM_API_KEY=EMPTY
+```
+
+This repo does not claim a public hosted LLM demo. The supported sharing model is:
+- everyone can run the full app locally in mock mode
+- authorized teammates can point the same app at the private backend when connectivity is available
+
+Quick verification before exposing the app:
+
+```bash
+ARTICLE_URL=$(curl -s http://127.0.0.1:8000/api/articles | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["link"])')
+
+curl -s -X POST http://127.0.0.1:8000/api/summarize \
+  -H "Content-Type: application/json" \
+  -d "{\"url\":\"$ARTICLE_URL\",\"k\":5,\"mode\":\"abstractive\",\"persona\":\"technical\",\"length\":\"brief\"}" \
+  | python3 -m json.tool
+```
+
+If the summary begins with `[Mock Summary]`, the app is still in mock mode and should not be tunneled for live inference.
+
+### Temporary quick tunnel for live inference
+
+Only use this after the app is already running in real LLM mode.
+
+```bash
+make tunnel-real
+```
+
+This creates an unauthenticated temporary Cloudflare quick tunnel. It is suitable for short-lived demos, not for a hardened deployment.
+
+## Proof It Works
+
+Full regression pass:
+
+```bash
+PYTHONPATH=. pytest tests -q
+```
+
+Expected result: `244 passed`
+
+Targeted verification hooks:
+
+| Objective | Command | Expected evidence |
+| --- | --- | --- |
+| Full regression pass | `PYTHONPATH=. pytest tests -q` | `244 passed` |
+| Extractive length changes effective sentence budget | `PYTHONPATH=. pytest tests/test_summarization_pipeline.py -q -k "length_scales_effective_k"` | `brief` reduces effective `k`; `detailed` increases it |
+| Abstractive mode now surfaces verifier metadata | `PYTHONPATH=. pytest tests/test_summarization_pipeline.py -q -k "confidence_from_verifier_when_available or done_event_has_confidence_when_verifier_available"` | verified abstractive responses return `confidence` and `flagged_entities` |
+| Verifier filters citation and reference noise | `PYTHONPATH=. pytest tests/test_verifier.py -q -k "citation_scaffolding_is_filtered or sanitize_text_removes_reference_scaffolding"` | URLs, reference sections, and citation scaffolding are stripped before entity comparison |
+| Real LLM path honors configured model name | `PYTHONPATH=. pytest tests/test_abstractor.py -q -k "default_model_from_env"` | runtime reads `VLLM_MODEL` from the environment |
+
+## Verification Semantics
+
+Describe `confidence` as:
+- a grounding or consistency signal
+- not a truth score
+- not an overall summary quality score
+
+Describe `flagged_entities` as:
+- entities or details the verifier could not ground in the source
+- inspection hints, not proof of hallucination
+
+Recommended wording:
+
+> The verifier provides a lightweight grounding signal rather than a factual guarantee. Its confidence score reflects source-entity consistency, while flagged entities indicate details that warrant manual inspection.
+
+## Project Highlights
+
+- three pipeline modes: extractive, abstractive, hybrid
+- five persona profiles: default, technical, casual, executive, academic
+- length control for both rewrite budget and extractive sentence budget
+- SvelteKit frontend with dashboard, summarize, profile, and compare pages
+- FastAPI backend with REST + SSE streaming endpoints
+- Prometheus-friendly `/metrics` endpoint for platform monitoring
+- user profiles, article ranking, and a feedback loop
+- 244 tests, 91% coverage, and GitHub Actions CI
+- Talos/Flux/Cilium/Prometheus/Grafana deployment scaffolding for the self-hosted path
+
+## Professional Roadmap
+
+| Track | Next improvement | Why it still matters |
+| --- | --- | --- |
+| Persistence | move profile and feedback storage to a shared store such as Postgres | current JSON-backed state is demo-grade and can diverge across replicas |
+| Verification | add claim-level grounding or entailment on top of NER matching | current verifier is useful, but still heuristic |
+| Evaluation | make live LLM comparisons fully replayable with locked configs and saved artifacts | stronger academic and portfolio evidence |
+| Extractive core | add optional embeddings-assisted relevance and evidence-aware outputs | improves semantic quality without discarding the interpretable baseline |
+| Deployment hardening | define an owned auth, secrets, and private-network exposure path | necessary before any serious hosted deployment claim |
+
+Condensed next-phase planning lives in [docs/future-plans.md](docs/future-plans.md).
+
+## Container Publishing And Platform Deployment
+
+This repo owns the application image lifecycle.
+
+- GitHub Actions publishes the API image to GitHub Container Registry (`GHCR`)
+- the published image path is `ghcr.io/ixxet/uas-api`
+- each push publishes an immutable-by-convention commit tag:
+  - `ghcr.io/ixxet/uas-api:sha-<git-commit>`
+- branch pushes may also publish a convenience tag such as:
+  - `ghcr.io/ixxet/uas-api:rouge-one`
+
+Deployment policy:
+
+- local development can still use `make dev` and mock mode
+- the private Talos platform repo deploys this app by image reference only
+- the platform should deploy the `sha-...` image tag, not the floating branch tag
+- rollback is done by reverting the deployed image reference in the platform repo
+
+This keeps the ownership boundary clean:
+
+- this repo owns application code, Docker image builds, and app behavior
+- the private platform repo owns Kubernetes deployment, monitoring, and external exposure
+
+Runtime image notes:
+
+- the production image installs `requirements.runtime.txt`, not the full development dependency set
+- heavy dataset and evaluation libraries stay in the repo for capstone work, but are excluded from the API runtime image
+- this keeps cluster pulls and rollouts practical on slower links without changing the deployed app behavior
+
+## Docs Index
+
+- [Academic / capstone readme](docs/academic-readme.md)
+- [Future plans and improvements](docs/future-plans.md)
+- [Operational status tables](docs/operational-status.md)
+- [QA stabilization audit](docs/qa-audit.md)
+- [Architecture overview](docs/architecture-overview.mmd)
+- [Pipeline flow](docs/pipeline-flow.mmd)
+- [Extractive algorithm diagram](docs/extractive-algorithm.mmd)
+- [Frontend architecture diagram](docs/svelte-frontend.mmd)

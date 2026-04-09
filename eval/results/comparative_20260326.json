@@ -1,0 +1,24 @@
+{
+  "timestamp": "2026-03-26T19:00:37.291202",
+  "samples": 20,
+  "seed": 42,
+  "k": 5,
+  "llm_model": "mistralai/Mistral-7B-Instruct-v0.3",
+  "llm_endpoint": "http://192.168.2.205:8000/v1",
+  "extractive": {
+    "rouge1_f": 0.32474605024642916,
+    "rouge2_f": 0.12826761204674,
+    "rougeL_f": 0.21505242085766282
+  },
+  "abstractive": {
+    "rouge1_f": 0.32489402745823337,
+    "rouge2_f": 0.10340917730804988,
+    "rougeL_f": 0.19992817802346882
+  },
+  "hybrid": {
+    "rouge1_f": 0.33918089446052707,
+    "rouge2_f": 0.10518929744557919,
+    "rougeL_f": 0.2048735136549283
+  },
+  "hybrid_avg_confidence": 0.8611793884220355
+}

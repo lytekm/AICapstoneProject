@@ -1,0 +1,17 @@
+# ServiceMonitor for the FastAPI backend.
+# Prometheus scrapes /metrics for request latency, throughput, and status code data.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: api
+  namespace: summarizer
+  labels:
+    app: api
+spec:
+  selector:
+    matchLabels:
+      app: api
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

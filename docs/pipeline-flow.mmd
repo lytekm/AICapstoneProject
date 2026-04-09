@@ -1,0 +1,21 @@
+%% Runtime pipeline flow for extractive, abstractive, and hybrid modes.
+
+flowchart TD
+    Request["Summarize request<br/>mode, persona, length, k"] --> UIK["UI default: k = 5<br/>API may override k directly"]
+    UIK --> Extract["Extract evidence sentences"]
+    Extract --> Scale["If extractive:<br/>effective_k = ceil(k * length multiplier)"]
+    Scale --> Mode{"Mode"}
+
+    Mode -->|extractive| ExtractiveOut["Return selected sentences<br/>confidence = null<br/>flagged_entities = []"]
+
+    Mode -->|abstractive| PromptA["Build persona prompt<br/>scale token budget by length"]
+    PromptA --> AbstractA["Generate rewrite<br/>mock or private vLLM"]
+    AbstractA --> VerifyA{"Verifier available?"}
+    VerifyA -->|yes| VerifiedA["Return summary + confidence + flagged_entities"]
+    VerifyA -->|no| UnverifiedA["Return summary<br/>confidence = null<br/>flagged_entities = []"]
+
+    Mode -->|hybrid| PromptH["Build persona prompt<br/>scale token budget by length"]
+    PromptH --> AbstractH["Generate rewrite<br/>mock or private vLLM"]
+    AbstractH --> VerifyH{"Verifier available?"}
+    VerifyH -->|yes| VerifiedH["Return summary + confidence + flagged_entities"]
+    VerifyH -->|no| UnverifiedH["Return summary<br/>confidence = null<br/>flagged_entities = []"]

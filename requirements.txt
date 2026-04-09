@@ -10,3 +10,7 @@ evaluate
 pyarrow
 fastapi
 uvicorn[standard]
+openai
+spacy
+bert-score
+prometheus-fastapi-instrumentator

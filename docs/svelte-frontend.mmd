@@ -1,0 +1,105 @@
+%% Svelte frontend architecture for the current rouge-one implementation.
+%% Reflects the checked-in static build plus the SvelteKit source app.
+
+flowchart TB
+    subgraph App["SvelteKit application"]
+        direction TB
+
+        subgraph Layout["Persistent shell"]
+            Navbar["Navbar<br/>nav links + user ID input<br/>persists user_id in localStorage"]
+            Toast["Toast<br/>success, error, info"]
+        end
+
+        subgraph Pages["Routes"]
+            Home["/<br/>anonymous = generic feed<br/>missing profile falls back to generic feed"]
+            Summarize["/summarize<br/>workspace for one article + one config"]
+            Profile["/profile<br/>preferences and feedback weights"]
+            Compare["/compare<br/>side-by-side results for one article"]
+        end
+
+        subgraph Components["Shared components"]
+            ArticleList["ArticleList<br/>generic or personalized feed"]
+            ArticleCard["ArticleCard<br/>rank badges and match reasons"]
+            SummarizeForm["SummarizeForm<br/>mode, persona, length controls<br/>fixed default k = 5 inside the UI"]
+            SummaryView["SummaryView<br/>summary text + metadata + feedback"]
+            StreamingText["StreamingText<br/>progressive SSE rendering"]
+            ConfidenceBadge["ConfidenceBadge<br/>N/A when summary was not verified"]
+            EntityChips["FlaggedEntityChips<br/>warning chips for ungrounded entities"]
+            FeedbackButtons["FeedbackButtons<br/>shown for signed-in users"]
+            PreferencesForm["PreferencesForm<br/>topics, keywords, default persona, default length"]
+        end
+
+        subgraph Stores["Reactive stores"]
+            UserStore["user store<br/>userId + profile + loadProfile()"]
+            ArticleStore["articles store<br/>generic feed by default<br/>personalized feed only when profile is loaded"]
+            SummaryStore["summary store<br/>POST + SSE flows, latency, result state"]
+        end
+    end
+
+    subgraph API["FastAPI backend"]
+        Health["GET /api/health"]
+        Articles["GET /api/articles"]
+        Personalized["GET /api/articles/personalized"]
+        Personas["GET /api/personas"]
+        SummarizeAPI["POST /api/summarize<br/>returns summary, confidence, flagged_entities"]
+        StreamAPI["GET /api/summarize/stream<br/>SSE meta -> token* -> done"]
+        SavePrefs["POST /api/user/preferences"]
+        ReadPrefs["GET /api/user/preferences/{user_id}"]
+        FeedbackAPI["POST /api/user/feedback"]
+        StaticShell["Static frontend shell<br/>served at /"]
+    end
+
+    subgraph Backend["Python pipeline"]
+        Extractive["TextRank + centroid + MMR"]
+        Abstractor["MockAbstractor or optional private vLLM"]
+        Verifier["spaCy grounding verifier"]
+        Profiles["JSON profile store"]
+        Ranker["Article ranker"]
+    end
+
+    Layout --> Home
+    Layout --> Summarize
+    Layout --> Profile
+    Layout --> Compare
+
+    Home --> ArticleList
+    Summarize --> ArticleList
+    Summarize --> SummarizeForm
+    Summarize --> SummaryView
+    Profile --> PreferencesForm
+    Compare --> SummarizeForm
+    Compare --> SummaryView
+
+    ArticleList --> ArticleCard
+    SummaryView --> StreamingText
+    SummaryView --> ConfidenceBadge
+    SummaryView --> EntityChips
+    SummaryView --> FeedbackButtons
+
+    Navbar --> UserStore
+    UserStore --> ReadPrefs
+    PreferencesForm --> SavePrefs
+    ArticleStore --> Articles
+    ArticleStore --> Personalized
+    SummarizeForm --> Personas
+    SummarizeForm --> SummarizeAPI
+    SummarizeForm --> StreamAPI
+    FeedbackButtons --> FeedbackAPI
+
+    ReadPrefs -.-> UserStore
+    Articles -.-> ArticleStore
+    Personalized -.-> ArticleStore
+    SummarizeAPI -.-> SummaryStore
+    StreamAPI -.-> SummaryStore
+
+    SummarizeAPI --> Extractive
+    SummarizeAPI --> Abstractor
+    SummarizeAPI --> Verifier
+    StreamAPI --> Extractive
+    StreamAPI --> Abstractor
+    StreamAPI --> Verifier
+    Personalized --> Ranker
+    SavePrefs --> Profiles
+    ReadPrefs --> Profiles
+    FeedbackAPI --> Profiles
+    Ranker <--> Profiles

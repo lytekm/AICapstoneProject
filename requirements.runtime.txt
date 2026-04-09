@@ -1,0 +1,11 @@
+feedparser
+fastapi
+nltk
+numpy
+openai
+prometheus-fastapi-instrumentator
+rouge-score
+scikit-learn
+spacy
+trafilatura
+uvicorn[standard]
